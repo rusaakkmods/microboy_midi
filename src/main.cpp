@@ -38,10 +38,27 @@ enum MidiType: uint8_t
 
 MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, MIDI);
 
-#define GB_CLOCK_PIN PIN_A0    // PORTA0
-#define GB_SO_PIN PIN_A1       // PORTA1
-#define GB_SI_PIN PIN_A2       // PORTA2
+#ifdef __AVR_ATmega2560__ // use board = megaatmega2560
+#define USE_MEGA_2560_PRO
+#elif __AVR_ATmega32U4__ // use board = leonardo
+#define USE_PRO_MICRO
+#endif
+
+#if defined USE_MEGA_2560_PRO // TESTED on https://www.dreamgreenhouse.com/projects/arduino/mega2560pro.php
+
+#define GB_CLOCK_PIN 22
+#define GB_SO_PIN 23
+#define GB_SI_PIN 24
+#define MODE_KNOB_PIN A0
+
+#elif defined USE_PRO_MICRO // TESTED on https://deskthority.net/wiki/Arduino_Pro_Micro
+
+#define GB_CLOCK_PIN PIN_A0
+#define GB_SO_PIN PIN_A1
+#define GB_SI_PIN PIN_A2
 #define MODE_KNOB_PIN A10
+
+#endif
 
 #define MODE_SLAVE 0
 #define MODE_MASTER 1
@@ -56,7 +73,7 @@ unsigned int channelPulse2 = 2;
 unsigned int channelWave = 3;
 unsigned int channelNoise = 4;
 
-unsigned int channelMaster = 15;
+unsigned int channelMaster = 16;
 
 void sendClockPulse() {
   if (!isClockMuted) {
@@ -149,7 +166,7 @@ void setupMasterMode() {
 
       ticks++; 
       if(ticks <= 8) {
-        //MIDI.sendNoteOn(data, fixedVelocity, channelMaster); //TODO not sure why send note on
+        MIDI.sendNoteOn(data, fixedVelocity, channelMaster); //TODO not sure why send note on
         MIDI.sendStart(); //TODO: is there a way not to send start along with clock
         MIDI.sendClock(); //sending clock here 
         ticks = 0;

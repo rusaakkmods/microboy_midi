@@ -145,6 +145,7 @@ void masterReading() {
   }
 }
 
+
 void setupMasterMode() {
   pinMode(GB_CLOCK_PIN, INPUT);
   //attachInterrupt(GB_CLOCK_PIN, handleTicks, FALLING); //different pin on MEGA 2560, I'll do it later
@@ -255,6 +256,7 @@ boolean midiValueMode = false;
 //   }
 // }
 
+
 void setupMIDIOutMode() {
   pinMode(GB_CLOCK_PIN, OUTPUT);
   digitalWrite(GB_CLOCK_PIN, HIGH);
@@ -297,6 +299,13 @@ void setupMIDIOutMode() {
   } while (modeReading() == MODE_MIDIOUT);
 }
 
+/**
+ * @brief Switches the operating mode of the device and sets up the corresponding mode.
+ *
+ * This function reads the current mode, updates the display, and sets up the device
+ * according to the selected mode. It handles different modes such as slave, master,
+ * MIDI out, and MIDI map. After setting up the mode, it sends a MIDI stop message.
+ */
 void modeSwitch() {
   mode = modeReading();
   printDisplay();

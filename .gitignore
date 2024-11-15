@@ -3,3 +3,5 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
+schematic
+schematics/megaboy_midi/megaboy_midi-backups

@@ -20,10 +20,8 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 #define SO_PIN A1
 
 //#define SC_PERIOD 125                     // Gameboy Clock period in microseconds (approx. 8 kHz) !not yet sure it's necessary
-#define CLOCK_DELAY 1                       // microseconds between 1-63 microseconds is recommended
-#define BYTE_DELAY 992                     // microseconds between 600-1000 microseconds is recommended
-
-volatile int byteDelay = 992;
+#define CLOCK_DELAY 1                       // microseconds between 1122 microseconds is recommended
+#define BYTE_DELAY 976                     // microseconds between 600-1000 microseconds is recommended
 
 // Control interfaces
 #define BPM_KNOB_PIN A10                    // Use PWM pin for analog input
@@ -83,7 +81,8 @@ void sendCommand(byte message) {
     //todo PC message
   }
   else {
-    //12-15 
+    //12-15 ?? 
+    // Ignore
   }
 }
 
@@ -106,19 +105,31 @@ void sendMessage(byte message) {
   }
 }
 
-// write and read is crucial in this part, this is why we need to use macro on PORTF register
+/*
+The Game Boy link cable operates at a relatively low speed compared to modern communication standards. 
+The Game Boy's serial communication operates at approximately 8,192 bits per second (bps), 
+which translates to a bit period of about 122 microseconds.
+
+Normal Latency in Game Boy Link Communication
+Bit Period: Approximately 122 microseconds per bit.
+Byte Transmission Time: Since a byte consists of 8 bits, 
+the transmission time for one byte is approximately ( 8 \times 122 \text{ microseconds} = 976 \text{ microseconds} ).
+Ensuring Reliable Communication
+To ensure reliable communication with the Game Boy, you need to synchronize your microcontroller's timing with the Game Boy's clock. 
+This involves carefully managing the delays in your code.
+*/
 byte readIncommingByte() {
   byte receivedByte = 0;
   for (int i = 0; i < 8; i++) {
     PORTF |= (1 << PF7); // Set PORTF7 HIGH CLOCK_PIN
-    //delayMicroseconds(CLOCK_DELAY);
+    //delayMicroseconds(CLOCK_DELAY / 2);
 
     receivedByte = (receivedByte << 1) + ((PINF & (1 << PINF5)) ? 1 : 0); // Read the bit from Gameboy Serial Out SI_PIN
 
     PORTF &= ~(1 << PF7); // Set PORTF7 LOW
-    delayMicroseconds(CLOCK_DELAY);
+    delayMicroseconds(CLOCK_DELAY / 2);
   }
-  delayMicroseconds(byteDelay); // Small delay to allow Game Boy to prepare for the next byte | need to remove this in a future
+  delayMicroseconds(BYTE_DELAY); // Small delay to allow Game Boy to prepare for the next byte | need to remove this in a future
   return receivedByte &= 0x7F; // Set the MSB range value to 0-127
 }
 
@@ -151,18 +162,13 @@ void printDisplay() {
     display.println("]");
     display.setCursor(0, 20);
     display.print("BPM:");
-    display.print(byteDelay);
+    display.print(bpm);
     display.display();
     lastPrint = currentTime;
   }
 }
 
 void readControls(){
-  byteDelay = analogRead(BPM_KNOB_PIN);
-  
-  //bpm = map(bpmKnob, 0, 1023, 40, 300); // set BPM range from 40 to 300
-  //bpm = round(bpm / 20.0) * 20; // Snap to the nearest multiple of 5
-
   printDisplay();
 }
 
@@ -187,6 +193,6 @@ void setup() {
 }
 
 void loop() {
-  readControls();
+  //readControls();
   sendMessage(readIncommingByte());
 }

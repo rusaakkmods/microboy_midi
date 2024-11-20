@@ -20,8 +20,10 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 #define SO_PIN A1
 
 //#define SC_PERIOD 125                     // Gameboy Clock period in microseconds (approx. 8 kHz) !not yet sure it's necessary
-#define CLOCK_DELAY 2                       // microseconds between 1-63 microseconds is recommended
-#define BYTE_DELAY 8000                     // microseconds between 600-10000 microseconds is recommended
+#define CLOCK_DELAY 1                       // microseconds between 1-63 microseconds is recommended
+#define BYTE_DELAY 992                     // microseconds between 600-1000 microseconds is recommended
+
+volatile int byteDelay = 992;
 
 // Control interfaces
 #define BPM_KNOB_PIN A10                    // Use PWM pin for analog input
@@ -36,8 +38,6 @@ byte outputChannel[4] = {1, 2, 3, 4};       // default channel 1, 2, 3, 4 //TODO
 unsigned long lastPrint = 0;                // last time the display was updated
 
 volatile int bpm;
-volatile bool runClock = false;
-unsigned long lastTick = 0;  
 
 void playNote(byte track, byte note) {
     stopNote(track); // stop previous note consider each track is monophonics
@@ -46,6 +46,7 @@ void playNote(byte track, byte note) {
 }
 
 void stopNote(byte track) {
+
   byte note = lastNote[track];
   if (note) {
     MIDI.sendNoteOff(note, 0x00, outputChannel[track]);
@@ -60,12 +61,11 @@ void stopAll() {
 }
 
 void sendCommand(byte message) {
-  byte data = readIncommingByte();
   
-  byte track = 0;
   if (message < 0x04) { // 0-3 represent Track index
-    track = message;
-    if (data) { // value > 0 then its a "Note On" 1-127
+    byte track = message;
+    byte data = readIncommingByte();
+    if (data) { // value > 0 then its a "Note On" 1-127 | LSDJ note range 0-119
       playNote(track, data); // trigger the note
     }
     else { // value 0 then its a "Note Off"
@@ -73,35 +73,27 @@ void sendCommand(byte message) {
     }
   }
   else if (message < 0x08) { // 4-7 represent CC message
-    track = message - 0x04;
+    byte track = message - 0x04;
+    byte data = readIncommingByte();
     //todo CC message
   }
   else if (message < 0x0C) { // 8-11 represent PC message
-    track = message - 0x08;
+    byte track = message - 0x08;
+    byte data = readIncommingByte();
     //todo PC message
   }
   else {
-    return; // unknown message
+    //12-15 
   }
-}
-
-void startManualClock() {
-  runClock = true;
-}
-
-void stopManualClock() {
-  runClock = false;
 }
 
 void sendMessage(byte message) {
   switch (message)
   {
     case 0x7D:
-      startManualClock();
       MIDI.sendRealTime(midi::Start);
       break;
     case 0x7E:
-      stopManualClock();
       MIDI.sendRealTime(midi::Stop);
       stopAll();
       break;
@@ -114,20 +106,19 @@ void sendMessage(byte message) {
   }
 }
 
+// write and read is crucial in this part, this is why we need to use macro on PORTF register
 byte readIncommingByte() {
   byte receivedByte = 0;
-  
   for (int i = 0; i < 8; i++) {
-    digitalWrite(CLOCK_PIN, HIGH); // Send HIGH Signal to Gameboy Clock
-    delayMicroseconds(CLOCK_DELAY);
+    PORTF |= (1 << PF7); // Set PORTF7 HIGH CLOCK_PIN
+    //delayMicroseconds(CLOCK_DELAY);
 
-    receivedByte = (receivedByte << 1) + digitalRead(SI_PIN); // Read the bit from Gameboy Serial Out
+    receivedByte = (receivedByte << 1) + ((PINF & (1 << PINF5)) ? 1 : 0); // Read the bit from Gameboy Serial Out SI_PIN
 
-    digitalWrite(CLOCK_PIN, LOW);
+    PORTF &= ~(1 << PF7); // Set PORTF7 LOW
     delayMicroseconds(CLOCK_DELAY);
   }
-
-  delayMicroseconds(BYTE_DELAY); // Small delay to allow Game Boy to prepare for the next byte
+  delayMicroseconds(byteDelay); // Small delay to allow Game Boy to prepare for the next byte | need to remove this in a future
   return receivedByte &= 0x7F; // Set the MSB range value to 0-127
 }
 
@@ -160,30 +151,21 @@ void printDisplay() {
     display.println("]");
     display.setCursor(0, 20);
     display.print("BPM:");
-    display.print(bpm);
+    display.print(byteDelay);
     display.display();
     lastPrint = currentTime;
   }
 }
 
 void readControls(){
-  unsigned int bpmKnob = analogRead(BPM_KNOB_PIN);
-  bpm = map(bpmKnob, 0, 1023, 40, 300); // set BPM range from 40 to 300
-  bpm = round(bpm / 20.0) * 20; // Snap to the nearest multiple of 5
+  byteDelay = analogRead(BPM_KNOB_PIN);
+  
+  //bpm = map(bpmKnob, 0, 1023, 40, 300); // set BPM range from 40 to 300
+  //bpm = round(bpm / 20.0) * 20; // Snap to the nearest multiple of 5
 
   printDisplay();
 }
 
-void sendClock() {
-  if (runClock) {
-    unsigned long interval = (60L * 1000000L) / (bpm * PPQN);
-    unsigned long currentTime = micros(); //use micros() for more accurate timing
-    if (currentTime - lastTick >= interval) {
-      MIDI.sendRealTime(midi::Clock);
-      lastTick = currentTime;
-    }
-  }
-}
 
 void setup() {
   // Initialize Pins
@@ -205,8 +187,6 @@ void setup() {
 }
 
 void loop() {
+  readControls();
   sendMessage(readIncommingByte());
-  //readControls();
-  //sendClock();
-
 }

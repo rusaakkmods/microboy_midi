@@ -96,3 +96,16 @@ To measure the **Game Boy clock rate**:
 - The **Game Boy clock rate** is around **8 KHz**, corresponding to a **bit rate** of **8 Kbps** and a **byte rate** of **1000 bytes per second**.
 - The clock signal synchronizes the transfer of data between devices, ensuring accurate and reliable communication.
 
+/*
+The Game Boy link cable operates at a relatively low speed compared to modern communication standards. 
+The Game Boy's serial communication operates at approximately 8,192 bits per second (bps), 
+which translates to a bit period of about 122 microseconds.
+
+Normal Latency in Game Boy Link Communication
+Bit Period: Approximately 122 microseconds per bit.
+Byte Transmission Time: Since a byte consists of 8 bits, 
+the transmission time for one byte is approximately ( 8 \times 122 \text{ microseconds} = 976 \text{ microseconds} ).
+Ensuring Reliable Communication
+To ensure reliable communication with the Game Boy, you need to synchronize your microcontroller's timing with the Game Boy's clock. 
+This involves carefully managing the delays in your code.
+*/

@@ -6,6 +6,7 @@
 
 #define PRODUCT_NAME "MICROBOY MIDI"
 #define VERSION "v0.0.1"
+#define RUSAAKKMODS "rusaaKKMODS @ 2024"
 
 #define DEBUG_MODE
 
@@ -24,104 +25,163 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 #define SI_PIN A2
 #define SO_PIN A1
 
-//#define SC_PERIOD 125                     // Gameboy Clock period in microseconds (approx. 8 kHz) !not yet sure it's necessary
-#define CLOCK_DELAY 1                       // microseconds between 1-122 microseconds is recommended
-#define BYTE_DELAY 2000                     // microseconds between 600-1000 microseconds is recommended
-
 // Control interfaces
-#define VEL_KNOB_PIN A10                    // Use PWM pin for analog input
-#define PPQN 24                             // Pulses Per Quarter Note (PPQN) for MIDI clock
+#define VEL_KNOB_PIN A10 // Use PWM pin for analog input
 
-#define VELOCITY 127                          // TODO: controlable velocity by knob
+// #define SC_PERIOD 125                     // Gameboy Clock period in microseconds (approx. 8 kHz) !not yet sure it's necessary
+// #define PPQN 24                             // Pulses Per Quarter Note (PPQN) for MIDI clock
 
-volatile byte lastNote[4] = {0, 0, 0, 0};   // track 0-PU1, 1-PU2, 2-WAV, 3-NOI
-byte outputChannel[4] = {1, 2, 3, 4};       // default channel 1, 2, 3, 4 //TODO: controlable by rotary encoder
+// tweak this value to get better stability
+#define CLOCK_DELAY 1   // microseconds between 1-122 microseconds is recommended
+#define BYTE_DELAY 2000 // microseconds between 900-2000 microseconds is recommended 
 
-unsigned long lastPrint = 0;                // last time the display was updated
-
+volatile byte lastNote[4] = {0, 0, 0, 0}; // track 0-PU1, 1-PU2, 2-WAV, 3-NOI
+byte outputChannel[4] = {1, 2, 3, 4};     // default channel 1, 2, 3, 4 //TODO: controlable by rotary encoder
+uint64_t lastPrint = 0; // last time the display was updated
 volatile byte lastTrack = 0; // Track with the shortest update interval
-volatile int bpm = 0; // Calculated BPM
+uint16_t bpm = 0;            // Calculated BPM
+volatile byte velocity = 0;
 
-volatile byte velocity = 0; 
-
-void playNote(byte track, byte note) {
-    stopNote(track); // stop previous note consider each track is monophonics
-    MIDI.sendNoteOn(note, velocity, outputChannel[track]);
-    lastNote[track] = note;
+void playNote(byte track, byte note)
+{
+  stopNote(track); // stop previous note consider each track is monophonics
+  MIDI.sendNoteOn(note, velocity, outputChannel[track]);
+  lastNote[track] = note;
 }
 
-void stopNote(byte track) {
-
+void stopNote(byte track)
+{
   byte note = lastNote[track];
-  if (note) {
+  if (note)
+  {
     MIDI.sendNoteOff(note, 0x00, outputChannel[track]);
     lastNote[track] = 0;
   }
 }
 
-void stopAll() {
-  for (int ch = 0; ch < 4; ch++) {
-    stopNote(ch);
+void stopAll()
+{
+  for (uint8_t track = 0; track < 4; track++)
+  {
+    stopNote(track);
   }
 }
 
-void sendMessage(byte message, byte value) {
+uint64_t lastClockTime = 0; // Time of the last MIDI clock message
+void calculateBPM()
+{
+  uint64_t currentTime = millis();
+  uint64_t elapsedTime = currentTime - lastClockTime;
+  bpm = 60000 / (elapsedTime * 4);
+  lastClockTime = currentTime;
+}
+
+void sendMIDIClock()
+{
+  // Send 6 MIDI clock messages LSDJ step per step to simulate 24 PPQN
+  for (uint8_t tick = 0; tick < 6; tick++)
+  {
+    MIDI.sendRealTime(midi::Clock);
+    delayMicroseconds(CLOCK_DELAY);
+  }
+  calculateBPM();
+}
+
+void sendMessage(byte message, byte value)
+{
   byte command = message - 0x70;
   byte track = 0;
-  if (command < 0x04) { // 0-3 represent Track index
+  if (command < 0x04)
+  { // 0-3 represent Track index
     track = command;
-    if (value) { // value > 0 then its a "Note On" 1-127 | LSDJ note range 0-119
+    if (value)
+    {                         // value > 0 then its a "Note On" 1-127 | LSDJ note range 0-119
       playNote(track, value); // trigger the note
     }
-    else { // value 0 then its a "Note Off"
+    else
+    {                  // value 0 then its a "Note Off"
       stopNote(track); // stop all note in channel
     }
   }
-  else if (command < 0x08) { // 4-7 represent CC message
+  else if (command < 0x08)
+  { // 4-7 represent CC message
     track = command - 0x04;
-    //todo CC message
-     stopNote(track); // stop all note in channel
+    // todo CC message
+    Serial.print("CC Command:");
+    Serial.print(command);
+    Serial.print(" track:");
+    Serial.print(track);
+    Serial.print(" value:");
+    Serial.println(value);
   }
-  else if (command < 0x0C) { // 8-11 represent PC message
+  else if (command < 0x0C)
+  { // 8-11 represent PC message
     track = command - 0x08;
-    //todo PC message
+
+    // special reserved LSDJ "YFF" command to become beat clock counter
+    // thanks to @nikitabogdan & instagram: alfian_nay93 for the idea https://github.com/nikitabogdan/arduinoboy
+    // Rather than sacrifice the whole PC I instead utilize only one PC Message : 127 / LSDJ YFF command
+    // each YFF command will send MIDI clock signal
+    // how: simply put a YFF command in an LSDJ phrase or TABLE in any step you want to send MIDI clock signal
+    // example: put YFF command in a PHRASE, each 4th step to get 4/4 beat clock
+    if (value == 0x7F)
+    {
+      sendMIDIClock();
+    }
+    else 
+    {
+      // todo PC message
+#ifdef DEBUG_MODE
+      Serial.print("PC Command:");
+      Serial.print(command);
+      Serial.print(" track:");
+      Serial.print(track);
+      Serial.print(" value:");
+      Serial.println(value);
+#endif
+    }
   }
-  else if (command <= 0x0F) { // 12-15 not yet sure!
+  else if (command <= 0x0F)
+  { // 12-15 not yet sure!
     track = command - 0x0C;
-    //unknown! skip consume one value byte usually 0 or 127
+    // unknown! skip consume one value byte usually 0 or 127
   }
-  else {
-    //not supposed to happened!!
+  else
+  {
+    // not supposed to happened!!
     return;
   }
   lastTrack = track;
 }
 
-void sendRealtime(byte command) {
+void sendRealtime(byte command)
+{
   switch (command)
   {
-    case 0x7D:
-      MIDI.sendRealTime(midi::Start);
-      break;
-    case 0x7E:
-      MIDI.sendRealTime(midi::Stop);
-      stopAll();
-      break;
-    case 0x7F:
-      //microboy byte reading clock!! ignore for now
-      break;
-    default:
-    #ifdef DEBUG_MODE
-      Serial.print("Unknown Realtime: ");
-      Serial.print(command);
-    #endif
-      break;
+  case 0x7D:
+    MIDI.sendRealTime(midi::Start);
+    break;
+  case 0x7E:
+    MIDI.sendRealTime(midi::Stop);
+    stopAll();
+    break;
+  case 0x7F:
+    // microboy byte reading clock!! ignore for now
+    break;
+  default:
+#ifdef DEBUG_MODE
+    Serial.print("Unknown Realtime: ");
+    Serial.print(command);
+#endif
+    break;
   }
 }
 
-uint8_t readIncomingByte() {
-  uint8_t receivedByte = 0;
-  for (int i = 0; i < 8; i++) {
+byte readIncomingByte()
+{
+  byte receivedByte = 0;
+  for (uint8_t i = 0; i < 8; i++)
+  {
     PORTF |= (1 << PF7); // Set PORTF7 HIGH CLOCK_PIN
     delayMicroseconds(CLOCK_DELAY / 2);
 
@@ -131,23 +191,26 @@ uint8_t readIncomingByte() {
     delayMicroseconds(CLOCK_DELAY / 2);
   }
   delayMicroseconds(BYTE_DELAY); // Small delay to allow Game Boy to prepare for the next byte | need to remove this in a future
-  return receivedByte &= 0x7F; // Set the MSB range value to 0-127
+  return receivedByte &= 0x7F;   // Set the MSB range value to 0-127
 }
 
-void displaySplash() {
-    display.clearDisplay();
-    display.setCursor(0, 0);
-    display.println(PRODUCT_NAME);
-    display.setCursor(0, 10);
-    display.println(VERSION);
-    display.setCursor(0, 20);
-    display.print("rusaaKKMODS @ 2024");
-    display.display();
-} 
+void displaySplash()
+{
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.println(PRODUCT_NAME);
+  display.setCursor(0, 10);
+  display.println(VERSION);
+  display.setCursor(0, 20);
+  display.print(RUSAAKKMODS);
+  display.display();
+}
 
-void printDisplay() {
-  unsigned long currentTime = millis();
-  if (currentTime - lastPrint >= 1000) { //update display every 1 second
+void printDisplay()
+{
+  uint64_t currentTime = millis();
+  if (currentTime - lastPrint >= 1000)
+  { // update display every 1 second
     display.clearDisplay();
     display.setCursor(0, 0);
     display.print("PU1 [");
@@ -171,26 +234,29 @@ void printDisplay() {
   }
 }
 
-void readControl(){
-  int knobValue = analogRead(VEL_KNOB_PIN);
+void readControl()
+{
+  uint16_t knobValue = analogRead(VEL_KNOB_PIN);
   velocity = map(knobValue, 0, 1023, 0, 127);
 
   printDisplay();
 }
 
-void readGameboy() {
+void readGameboy()
+{
   byte command = readIncomingByte();
-  if (command >= 0x7D) { // 125-127 realtime message
+  if (command >= 0x7D)
+  { // 125-127 realtime message
     sendRealtime(command);
   }
-  else if (command >= 0x70) { // 112-124 command message
+  else if (command >= 0x70)
+  {                                  // 112-124 command message
     byte value = readIncomingByte(); // next byte should be the value
     sendMessage(command, value);
   }
-  else { // 0 - 111
-    //experimental correction
-    sendMessage(lastTrack + 0x70, command);
-    //reason could be: 
+  else
+  { // 0 - 111 Hiccups!!! not supposed to happened!!
+    // reason could be: 
     // 1. Unstable gameboy clock
     // 2. Unstable gameboy cpu
     // 3. Unstable microcontroller
@@ -199,25 +265,31 @@ void readGameboy() {
     // 6. Gameboy serial communication issue
 
 #ifdef DEBUG_MODE
-    //Hiccup!!
-    if (command == 0) {
+    if (command == 0)
+    {
       Serial.print("Hiccups! Off:");
     }
-    else {
-      if (command > 0x0F) {
+    else
+    {
+      if (command > 0x0F)
+      {
         Serial.print("Hiccups! Note:");
       }
-      else {
+      else
+      {
         Serial.print("Hiccups! Command:");
       }
     }
     Serial.println(command);
 #endif
 
+    // experimental hiccups! correction
+    sendMessage(lastTrack + 0x70, command);
   }
 }
 
-void setup() {
+void setup()
+{
   // Initialize Pins
   pinMode(CLOCK_PIN, OUTPUT);
   pinMode(SI_PIN, INPUT);
@@ -242,7 +314,8 @@ void setup() {
   displaySplash();
 }
 
-void loop() {
+void loop()
+{
   readControl();
   readGameboy();
 }

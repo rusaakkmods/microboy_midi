@@ -117,13 +117,16 @@ void sendMessage(byte message, byte value)
   else if (command < 0x0C)
   { // 8-11 represent PC message
     track = command - 0x08;
-
-    // special reserved LSDJ "YFF" command to become beat clock counter
-    // thanks to @nikitabogdan & instagram: alfian_nay93 for the idea https://github.com/nikitabogdan/arduinoboy
-    // Rather than sacrifice the whole PC I instead utilize only one PC Message : 127 / LSDJ YFF command
-    // each YFF command will send MIDI clock signal
-    // how: simply put a YFF command in an LSDJ phrase or TABLE in any step you want to send MIDI clock signal
-    // example: put YFF command in a PHRASE, each 4th step to get 4/4 beat clock
+    /*
+    // Redirect LSDJ "Y-FF" effect command to trigger beat clock counter
+    // -----------------------------------------------------------------
+    // thanks to @nikitabogdan & instagram: alfian_nay93 for the inspiring idea visit: https://github.com/nikitabogdan/arduinoboy
+    // Utilizing PC Message!!
+    //
+    // Each YFF command will send MIDI clock signal
+    // usage: 
+    // >> simply put a Y-FF command in a table step-1 follow by H-00 command in step-2 for normal measurement 4/4 and step-3 for 3/4 triplets
+    */
     if (value == 0x7F)
     {
       sendMIDIClock();
@@ -166,7 +169,7 @@ void sendRealtime(byte command)
     stopAll();
     break;
   case 0x7F:
-    // microboy byte reading clock!! ignore for now
+    // microboy byte reading clock!! ignore for now.. very missleading....
     break;
   default:
 #ifdef DEBUG_MODE
@@ -190,7 +193,8 @@ byte readIncomingByte()
     PORTF &= ~(1 << PF7); // Set PORTF7 LOW
     delayMicroseconds(CLOCK_DELAY / 2);
   }
-  delayMicroseconds(BYTE_DELAY); // Small delay to allow Game Boy to prepare for the next byte | need to remove this in a future
+  delayMicroseconds(BYTE_DELAY); // Small delay to allow Game Boy to prepare for the next byte transmission
+  //TODO: need to remove this delay in the future, millis/micros doesn't work well. was thinking move to pico for multithreading but naahh!!
   return receivedByte &= 0x7F;   // Set the MSB range value to 0-127
 }
 
@@ -256,6 +260,7 @@ void readGameboy()
   }
   else
   { // 0 - 111 Hiccups!!! not supposed to happened!!
+#ifdef DEBUG_MODE
     // reason could be: 
     // 1. Unstable gameboy clock
     // 2. Unstable gameboy cpu
@@ -263,8 +268,6 @@ void readGameboy()
     // 4. Unstable Gameboy power issue
     // 5. Gameboy link cable issue
     // 6. Gameboy serial communication issue
-
-#ifdef DEBUG_MODE
     if (command == 0)
     {
       Serial.print("Hiccups! Off:");
@@ -283,7 +286,7 @@ void readGameboy()
     Serial.println(command);
 #endif
 
-    // experimental hiccups! correction
+    // EXPERIMENTAL HICCUPS! CORRECTION!! LOL
     sendMessage(lastTrack + 0x70, command);
   }
 }

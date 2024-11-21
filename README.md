@@ -29,8 +29,11 @@ This project knowledge is based on `my own research and analysis` of the MIDI pr
   
   Microboy Features
   -----------------
-  - Generate MIDI Clock, manualy adjust the BPM to LSDJ tempo
-  - Maybe also auto detection Clock later on.
-  - Redirect each track to different MIDI channel
+  - Sync with LSDJ MI.OUT Mode
+  - Utilizing Program Change 127 (Gunshot) | LSDJ Y command FF to trigger Clock!
   - Adjustable Velocity knob
-  - Note Gate knob (just for fun!!)
+  - BPM calculation
+  - Redirect each track to different MIDI channel
+  - OLED Display information
+  - Rotary Knob Control Setup
+  - No Blinking LED yet

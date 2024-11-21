@@ -26,7 +26,6 @@ enum MidiType: uint8_t
     Undefined_FD          = 0xFD,
     ActiveSensing         = 0xFE,    ///< System Real Time - Active Sensing
     SystemReset           = 0xFF,    ///< System Real Time - System Reset
-
 */
 
 #include <Arduino.h>

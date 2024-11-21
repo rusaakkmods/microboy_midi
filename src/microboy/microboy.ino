@@ -2,7 +2,6 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
-#include <limits.h>
 
 #define PRODUCT_NAME "MICROBOY MIDI"
 #define VERSION "v0.0.1"
@@ -33,11 +32,20 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
 // tweak this value to get better stability
 #define CLOCK_DELAY 1   // microseconds between 1-122 microseconds is recommended
-#define BYTE_DELAY 2000 // microseconds between 900-2000 microseconds is recommended 
+#define BYTE_DELAY 2000 // microseconds between 900-2000 microseconds is recommended
 
 volatile byte lastNote[4] = {0, 0, 0, 0}; // track 0-PU1, 1-PU2, 2-WAV, 3-NOI
-byte outputChannel[4] = {1, 2, 3, 4};     // default channel 1, 2, 3, 4 //TODO: controlable by rotary encoder
-uint64_t lastPrint = 0; // last time the display was updated
+
+byte outputChannel[4] = {1, 2, 3, 4};         // default channel 1, 2, 3, 4 //TODO: controlable by rotary encoder and save in EEPROM
+bool ccMode[4] = {true, true, true, true};    // default CC mode 1, 1, 1, 1 //TODO: should be configurable maybe save in EEPROM
+bool ccScaling[4] = {true, true, true, true}; // default scaling 1, 1, 1, 1 //TODO: should be configurable maybe save in EEPROM
+byte ccNumbers[4][7] = {
+    {1, 2, 3, 7, 10, 11, 12},
+    {1, 2, 3, 7, 10, 11, 12},
+    {1, 2, 3, 7, 10, 11, 12},
+    {1, 2, 3, 7, 10, 11, 12}}; // default CC numbers 1, 2, 3, 7, 10, 11, 12 //TODO: should be configurable maybe save in EEPROM
+
+uint64_t lastPrint = 0;      // last time the display was updated
 volatile byte lastTrack = 0; // Track with the shortest update interval
 uint16_t bpm = 0;            // Calculated BPM
 volatile byte velocity = 0;
@@ -87,6 +95,101 @@ void sendMIDIClock()
   calculateBPM();
 }
 
+void sendNotes(byte track, byte note)
+{
+  if (note)
+  {                        // value > 0 then its a "Note On" 1-127 | LSDJ note range 0-119
+    playNote(track, note); // trigger the note
+  }
+  else
+  {                  // value 0 then its a "Note Off"
+    stopNote(track); // stop all note in channel
+  }
+}
+
+/* Reference from Arduinoboy (https://github.com/trash80/Arduinoboy)
+// by Timothy Lamb @trash80
+// ------------------------------------
+// X## - Sends a MIDI CC -
+// By default in Arduinoboy the high nibble selects a CC#, and the low nibble sends a value 0-F to 0-127.
+// This can be changed to allow just 1 midi CC with a range of 00-6F, or 7 CCs with scaled or unscaled values.
+//
+// CC Mode:
+// default: 1 for all 4 tracks
+// - 0: use 1 midi CC, with the range of 00-6F,
+// - 1: uses 7 midi CCs with the range of 0-F (the command's first digit would be the CC#)
+// either way the value is scaled to 0-127 on output
+// ------------------------------------
+// CC Scaling:
+// default: 1 for all 4 tracks
+// - 1: scales the CC value range to 0-127 as oppose to lsdj's incomming 00-6F (0-112) or 0-F (0-15)
+// - 0: no scaling, the value is directly sent to midi out 0-112 or 0-15
+// scaling in c:
+// byte scaledValue = map(value, 0, 112, 0, 127); // 0-112 to 0-127
+// byte scaledValue = map(value, 0, 15, 0, 127); // 0-112 to 0-127
+// ------------------------------------
+// CC Message Numbers
+// default options: {1,2,3,7,10,11,12} for each track, these options are CC numbers for lsdj midi out
+// If CC Mode is 1, all 7 ccs options are used per channel at the cost of a limited resolution of 0-F
+*/
+void sendControlChange(byte track, byte value)
+{
+  byte ccNumber;
+  byte ccValue;
+
+  if (ccMode[track])
+  {
+    if (ccScaling[track])
+    {
+      // CC Mode 1 with scaling
+      ccNumber = ccNumbers[track][(value & 0xF0) >> 4]; // High nibble
+      ccValue = map(value & 0x0F, 0, 15, 0, 127);       // Low nibble
+    }
+    else
+    {
+      // CC Mode 1 without scaling
+      ccNumber = ccNumbers[track][(value & 0xF0) >> 4]; // High nibble
+      ccValue = value & 0x0F;                           // Low nibble
+    }
+  }
+  else
+  {
+    if (ccScaling[track])
+    {
+      // CC Mode 0 with scaling
+      ccNumber = ccNumbers[track][0];       // Use the first CC number for Mode 0
+      ccValue = map(value, 0, 112, 0, 127); // Scale the value
+    }
+    else
+    {
+      // CC Mode 0 without scaling
+      ccNumber = ccNumbers[track][0]; // Use the first CC number for Mode 0
+      ccValue = value;                // Direct value
+    }
+  }
+
+  MIDI.sendControlChange(ccNumber, ccValue, outputChannel[track]);
+
+#ifdef DEBUG_MODE
+  Serial.print("CC Command - track:");
+  Serial.print(track);
+  Serial.print(" value:");
+  Serial.println(value);
+#endif
+}
+
+void sendProgramChange(byte track, byte value)
+{
+  MIDI.sendProgramChange(value, outputChannel[track]);
+
+#ifdef DEBUG_MODE
+  Serial.print("PC Command - track:");
+  Serial.print(track);
+  Serial.print(" value:");
+  Serial.println(value);
+#endif
+}
+
 void sendMessage(byte message, byte value)
 {
   byte command = message - 0x70;
@@ -94,54 +197,33 @@ void sendMessage(byte message, byte value)
   if (command < 0x04)
   { // 0-3 represent Track index
     track = command;
-    if (value)
-    {                         // value > 0 then its a "Note On" 1-127 | LSDJ note range 0-119
-      playNote(track, value); // trigger the note
-    }
-    else
-    {                  // value 0 then its a "Note Off"
-      stopNote(track); // stop all note in channel
-    }
+    sendNotes(track, value);
   }
   else if (command < 0x08)
   { // 4-7 represent CC message
     track = command - 0x04;
-    // todo CC message
-    Serial.print("CC Command:");
-    Serial.print(command);
-    Serial.print(" track:");
-    Serial.print(track);
-    Serial.print(" value:");
-    Serial.println(value);
+    sendControlChange(track, value);
   }
   else if (command < 0x0C)
   { // 8-11 represent PC message
     track = command - 0x08;
-    /*
-    // Redirect LSDJ "Y-FF" effect command to trigger beat clock counter
-    // -----------------------------------------------------------------
-    // thanks to @nikitabogdan & instagram: alfian_nay93 for the inspiring idea visit: https://github.com/nikitabogdan/arduinoboy
-    // Utilizing PC Message!!
-    //
-    // Each YFF command will send MIDI clock signal
-    // usage: 
-    // >> simply put a Y-FF command in a table step-1 follow by H-00 command in step-2 for normal measurement 4/4 and step-3 for 3/4 triplets
-    */
-    if (value == 0x7F)
+    if (value == 0x7F) // let's use the GUNSHOT!!!
     {
+      /*
+      // Redirect LSDJ "Y-FF" effect command to trigger beat clock counter
+      // -----------------------------------------------------------------
+      // thanks to @nikitabogdan & instagram: alfian_nay93 for the inspiring idea visit: https://github.com/nikitabogdan/arduinoboy
+      // Utilizing PC Message!!
+      //
+      // Each YFF command will send MIDI clock signal
+      // usage:
+      // >> simply put a Y-FF command in a table step-1 follow by H-00 command in step-2 for normal measurement 4/4 and step-3 for 3/4 triplets
+      */
       sendMIDIClock();
     }
-    else 
+    else
     {
-      // todo PC message
-#ifdef DEBUG_MODE
-      Serial.print("PC Command:");
-      Serial.print(command);
-      Serial.print(" track:");
-      Serial.print(track);
-      Serial.print(" value:");
-      Serial.println(value);
-#endif
+      sendProgramChange(track, value);
     }
   }
   else if (command <= 0x0F)
@@ -194,8 +276,8 @@ byte readIncomingByte()
     delayMicroseconds(CLOCK_DELAY / 2);
   }
   delayMicroseconds(BYTE_DELAY); // Small delay to allow Game Boy to prepare for the next byte transmission
-  //TODO: need to remove this delay in the future, millis/micros doesn't work well. was thinking move to pico for multithreading but naahh!!
-  return receivedByte &= 0x7F;   // Set the MSB range value to 0-127
+  // TODO: need to remove this delay in the future, millis/micros doesn't work well. was thinking move to pico for multithreading but naahh!!
+  return receivedByte &= 0x7F; // Set the MSB range value to 0-127
 }
 
 void displaySplash()
@@ -261,7 +343,7 @@ void readGameboy()
   else
   { // 0 - 111 Hiccups!!! not supposed to happened!!
 #ifdef DEBUG_MODE
-    // reason could be: 
+    // reason could be:
     // 1. Unstable gameboy clock
     // 2. Unstable gameboy cpu
     // 3. Unstable microcontroller

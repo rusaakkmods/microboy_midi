@@ -7,7 +7,8 @@ This project knowledge is based on `my own research and analysis` of the MIDI pr
 `SPECIAL THANKS TO`:
   - Johan Kotlinski (@johan_kotlinski) for his work on LSDJ.
   - Timothy Lamb (@trash80) for his work on Arduinoboy. It's a great reference for me.
-  - AND of course our kooky AI: GPT 4o (ChatGPT, Copilot). Why aren't you??
+  - Nikita Bogdan (@nikitabogdan) & Alfian (instagram: @alfian_nay93) for PC ideas!
+  - AND of course our kooky AI: GPT 4o (ChatGPT, Copilot). Why not!!
 
   Reading Gameboy Message LSDJ MI.OUT MODE
   ----------------------------------------

@@ -206,7 +206,7 @@ void routeMessage(byte message, byte value)
   else if (command < 0x08)
   { // 4-7 represent CC message
     track = command - 0x04;
-    //sendControlChange(track, value);
+    sendControlChange(track, value);
   }
   else if (command < 0x0C)
   { // 8-11 represent PC message
@@ -227,7 +227,7 @@ void routeMessage(byte message, byte value)
     }
     else
     {
-      //sendProgramChange(track, value);
+      sendProgramChange(track, value);
     }
   }
   else if (command <= 0x0F)
@@ -273,14 +273,12 @@ byte readIncomingByte()
   {
     // use PORT instead of digitalWrite to reduce delay
     PORTB |= (1 << PB1); // Set PORTF7 HIGH CLOCK_PIN 
-    //digitalWrite(CLOCK_PIN, HIGH);
-    delayMicroseconds(CLOCK_DELAY / 2);
+    delayMicroseconds(CLOCK_DELAY);
 
     receivedByte = (receivedByte << 1) + ((PINB & (1 << PINB3)) ? 1 : 0); // Read the bit from Gameboy Serial Out on SI_PIN
 
-    PORTB &= ~(1 << PB1); // Set PORTF7 LOW
-    //digitalWrite(CLOCK_PIN, LOW);
-    delayMicroseconds(CLOCK_DELAY / 2);
+    PORTB &= ~(1 << PB1); // Set PORTF7 LOW CLOCK_PIN
+    delayMicroseconds(CLOCK_DELAY);
   }
   // TODO: 
   // need to eliminate this delay in the future, millis/micros doesn't work well. 
@@ -403,7 +401,7 @@ void setup()
   sei(); // Enable global interrupts
 
   digitalWrite(SO_PIN, LOW);
-  digitalWrite(SI_PIN, LOW);
+  digitalWrite(SI_PIN, HIGH);
 
 #ifdef DEBUG_MODE
   Serial.begin(9600);

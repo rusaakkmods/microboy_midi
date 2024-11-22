@@ -3,38 +3,36 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
-#define PRODUCT_NAME "MICROBOY MIDI"
+#define PRODUCT_NAME "MicroBOY MIDI"
 #define VERSION "v0.0.1"
 #define RUSAAKKMODS "rusaaKKMODS @ 2024"
 
 #define DEBUG_MODE
 
-MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, MIDI);
+// RESERVERD PINS
+// #define OLED_SDA SDA
+// #define OLED_SCL SCL
+#define STATUS_PIN LED_BUILTIN
+#define CLOCK_PIN A0 // to be connected to Gameboy Clock
+#define SO_PIN A1    // to be connected to Gameboy Serial In
+#define SI_PIN A2    // to be connected to Gameboy Serial Out
+#define VEL_KNOB_PIN A10
+
+// tweak these value to get better stability, lower value will give better stability but slower
+#define CLOCK_DELAY 1
+#define BYTE_DELAY 2000
+// #define SC_PERIOD 125                      // Gameboy Clock period in microseconds (approx. 8 kHz) !not yet sure it's necessary
+// #define PPQN 24                            // Pulses Per Quarter Note (PPQN) for MIDI clock
 
 // OLED display
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 32
 #define OLED_I2C_ADDRESS 0x3C
 
-#define BUFFER_SIZE 32 // 6 - 12 recomended
+MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, MIDI);
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
-#define CLOCK_PIN A0
-#define SI_PIN A2
-#define SO_PIN A1
-
-// Control interfaces
-#define VEL_KNOB_PIN A10 // Use PWM pin for analog input
-
-// #define SC_PERIOD 125                     // Gameboy Clock period in microseconds (approx. 8 kHz) !not yet sure it's necessary
-// #define PPQN 24                             // Pulses Per Quarter Note (PPQN) for MIDI clock
-
-// tweak this value to get better stability
-#define CLOCK_DELAY 1   // microseconds between 1-122 microseconds is recommended
-#define BYTE_DELAY 2000 // microseconds between 900-2000 microseconds is recommended
-
-volatile byte lastNote[4] = {0, 0, 0, 0}; // track 0-PU1, 1-PU2, 2-WAV, 3-NOI
 
 byte outputChannel[4] = {1, 2, 3, 4};         // default channel 1, 2, 3, 4 //TODO: controlable by rotary encoder and save in EEPROM
 bool ccMode[4] = {true, true, true, true};    // default CC mode 1, 1, 1, 1 //TODO: should be configurable maybe save in EEPROM
@@ -45,19 +43,30 @@ byte ccNumbers[4][7] = {
     {1, 2, 3, 7, 10, 11, 12},
     {1, 2, 3, 7, 10, 11, 12}}; // default CC numbers 1, 2, 3, 7, 10, 11, 12 //TODO: should be configurable maybe save in EEPROM
 
-uint64_t lastPrint = 0;      // last time the display was updated
-volatile byte lastTrack = 0; // Track with the shortest update interval
-uint16_t bpm = 0;            // Calculated BPM
-volatile byte velocity = 0;
+uint64_t lastPrint = 0;     // last time the display was updated
+uint64_t lastClockTime = 0; // Time of the last MIDI clock message
+uint16_t bpm = 0;           // Calculated BPM
 
-void playNote(byte track, byte note)
+volatile byte lastNote[4] = {0, 0, 0, 0}; // track 0-PU1, 1-PU2, 2-WAV, 3-NOI
+volatile byte velocity = 0;               // adjustable Global Velocity, affecting all channels
+volatile byte lastTrack = 0;              // Track with the shortest update interval
+
+void calculateBPM()
 {
-  stopNote(track); // stop previous note consider each track is monophonics
+  uint64_t currentTime = millis();
+  uint64_t elapsedTime = currentTime - lastClockTime;
+  bpm = 60000 / (elapsedTime * 4);
+  lastClockTime = currentTime;
+}
+
+void notePlay(byte track, byte note)
+{
+  noteStop(track); // stop previous note consider each track is monophonics
   MIDI.sendNoteOn(note, velocity, outputChannel[track]);
   lastNote[track] = note;
 }
 
-void stopNote(byte track)
+void noteStop(byte track)
 {
   byte note = lastNote[track];
   if (note)
@@ -67,44 +76,37 @@ void stopNote(byte track)
   }
 }
 
-void stopAll()
+void noteStopAll()
 {
   for (uint8_t track = 0; track < 4; track++)
   {
-    stopNote(track);
+    noteStop(track);
   }
-}
-
-uint64_t lastClockTime = 0; // Time of the last MIDI clock message
-void calculateBPM()
-{
-  uint64_t currentTime = millis();
-  uint64_t elapsedTime = currentTime - lastClockTime;
-  bpm = 60000 / (elapsedTime * 4);
-  lastClockTime = currentTime;
-}
-
-void sendMIDIClock()
-{
-  // Send 6 MIDI clock messages LSDJ step per step to simulate 24 PPQN
-  for (uint8_t tick = 0; tick < 6; tick++)
-  {
-    MIDI.sendRealTime(midi::Clock);
-    delayMicroseconds(CLOCK_DELAY);
-  }
-  calculateBPM();
 }
 
 void sendNotes(byte track, byte note)
 {
   if (note)
   {                        // value > 0 then its a "Note On" 1-127 | LSDJ note range 0-119
-    playNote(track, note); // trigger the note
+    notePlay(track, note); // trigger the note
   }
   else
   {                  // value 0 then its a "Note Off"
-    stopNote(track); // stop all note in channel
+    noteStop(track); // stop all note in channel
   }
+}
+
+void sendClock()
+{
+  digitalWrite(STATUS_PIN, HIGH);
+  // Send 6 MIDI clock messages LSDJ step per step to simulate 24 PPQN
+  for (uint8_t tick = 0; tick < 6; tick++)
+  {
+    MIDI.sendRealTime(midi::Clock);
+    delayMicroseconds(CLOCK_DELAY); // give a very small delay
+  }
+  calculateBPM();
+  digitalWrite(STATUS_PIN, LOW);
 }
 
 /* Reference from Arduinoboy (https://github.com/trash80/Arduinoboy)
@@ -190,7 +192,7 @@ void sendProgramChange(byte track, byte value)
 #endif
 }
 
-void sendMessage(byte message, byte value)
+void routeMessage(byte message, byte value)
 {
   byte command = message - 0x70;
   byte track = 0;
@@ -219,7 +221,7 @@ void sendMessage(byte message, byte value)
       // usage:
       // >> simply put a Y-FF command in a table step-1 follow by H-00 command in step-2 for normal measurement 4/4 and step-3 for 3/4 triplets
       */
-      sendMIDIClock();
+      sendClock();
     }
     else
     {
@@ -239,7 +241,7 @@ void sendMessage(byte message, byte value)
   lastTrack = track;
 }
 
-void sendRealtime(byte command)
+void routeRealtime(byte command)
 {
   switch (command)
   {
@@ -248,7 +250,7 @@ void sendRealtime(byte command)
     break;
   case 0x7E:
     MIDI.sendRealTime(midi::Stop);
-    stopAll();
+    noteStopAll();
     break;
   case 0x7F:
     // microboy byte reading clock!! ignore for now.. very missleading....
@@ -267,65 +269,20 @@ byte readIncomingByte()
   byte receivedByte = 0;
   for (uint8_t i = 0; i < 8; i++)
   {
-    PORTF |= (1 << PF7); // Set PORTF7 HIGH CLOCK_PIN
+    // use PORT instead of digitalWrite to reduce delay
+    PORTF |= (1 << PF7); // Set PORTF7 HIGH CLOCK_PIN 
     delayMicroseconds(CLOCK_DELAY / 2);
 
-    receivedByte = (receivedByte << 1) + ((PINF & (1 << PINF5)) ? 1 : 0); // Read the bit from Gameboy Serial Out SI_PIN
+    receivedByte = (receivedByte << 1) + ((PINF & (1 << PINF5)) ? 1 : 0); // Read the bit from Gameboy Serial Out on SI_PIN
 
     PORTF &= ~(1 << PF7); // Set PORTF7 LOW
     delayMicroseconds(CLOCK_DELAY / 2);
   }
+  // TODO: 
+  // need to eliminate this delay in the future, millis/micros doesn't work well. 
+  // I'm thinking other board implementation: pico for multithreading, freeRTOS!! but naahh!! I'll try using interrupt first!
   delayMicroseconds(BYTE_DELAY); // Small delay to allow Game Boy to prepare for the next byte transmission
-  // TODO: need to remove this delay in the future, millis/micros doesn't work well. was thinking move to pico for multithreading but naahh!!
   return receivedByte &= 0x7F; // Set the MSB range value to 0-127
-}
-
-void displaySplash()
-{
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.println(PRODUCT_NAME);
-  display.setCursor(0, 10);
-  display.println(VERSION);
-  display.setCursor(0, 20);
-  display.print(RUSAAKKMODS);
-  display.display();
-}
-
-void printDisplay()
-{
-  uint64_t currentTime = millis();
-  if (currentTime - lastPrint >= 1000)
-  { // update display every 1 second
-    display.clearDisplay();
-    display.setCursor(0, 0);
-    display.print("PU1 [");
-    display.print(String(outputChannel[0] < 10 ? "0" : "") + String(outputChannel[0]));
-    display.print("] | PU2 [");
-    display.print(String(outputChannel[1] < 10 ? "0" : "") + String(outputChannel[1]));
-    display.println("]");
-    display.setCursor(0, 10);
-    display.print("WAV [");
-    display.print(String(outputChannel[2] < 10 ? "0" : "") + String(outputChannel[2]));
-    display.print("] | NOI [");
-    display.print(String(outputChannel[3] < 10 ? "0" : "") + String(outputChannel[3]));
-    display.println("]");
-    display.setCursor(0, 20);
-    display.print("VEL:");
-    display.print(velocity);
-    display.print(" BPM:");
-    display.print(bpm);
-    display.display();
-    lastPrint = currentTime;
-  }
-}
-
-void readControl()
-{
-  uint16_t knobValue = analogRead(VEL_KNOB_PIN);
-  velocity = map(knobValue, 0, 1023, 0, 127);
-
-  printDisplay();
 }
 
 void readGameboy()
@@ -333,12 +290,12 @@ void readGameboy()
   byte command = readIncomingByte();
   if (command >= 0x7D)
   { // 125-127 realtime message
-    sendRealtime(command);
+    routeRealtime(command);
   }
   else if (command >= 0x70)
-  {                                  // 112-124 command message
+  { // 112-124 command message
     byte value = readIncomingByte(); // next byte should be the value
-    sendMessage(command, value);
+    routeMessage(command, value);
   }
   else
   { // 0 - 111 Hiccups!!! not supposed to happened!!
@@ -369,17 +326,65 @@ void readGameboy()
 #endif
 
     // EXPERIMENTAL HICCUPS! CORRECTION!! LOL
-    sendMessage(lastTrack + 0x70, command);
+    routeMessage(lastTrack + 0x70, command); // re-route message with the hiccups command
+  }
+}
+
+void readControl()
+{
+  uint16_t knobValue = analogRead(VEL_KNOB_PIN);
+  velocity = map(knobValue, 0, 1023, 0, 128); // add offset 1 to get the actual value 127
+
+  displayMain();
+}
+
+void displaySplash()
+{
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.println(PRODUCT_NAME);
+  display.setCursor(0, 10);
+  display.println(VERSION);
+  display.setCursor(0, 20);
+  display.print(RUSAAKKMODS);
+  display.display();
+}
+
+void displayMain()
+{
+  uint64_t currentTime = millis();
+  if (currentTime - lastPrint >= 1000)
+  { // update display every 1 second
+    display.clearDisplay();
+    display.setCursor(0, 0);
+    display.print("PU1 [");
+    display.print(String(outputChannel[0] < 10 ? "0" : "") + String(outputChannel[0]));
+    display.print("] | PU2 [");
+    display.print(String(outputChannel[1] < 10 ? "0" : "") + String(outputChannel[1]));
+    display.println("]");
+    display.setCursor(0, 10);
+    display.print("WAV [");
+    display.print(String(outputChannel[2] < 10 ? "0" : "") + String(outputChannel[2]));
+    display.print("] | NOI [");
+    display.print(String(outputChannel[3] < 10 ? "0" : "") + String(outputChannel[3]));
+    display.println("]");
+    display.setCursor(0, 20);
+    display.print("VEL:");
+    display.print(velocity);
+    display.print(" BPM:");
+    display.print(bpm);
+    display.display();
+    lastPrint = currentTime;
   }
 }
 
 void setup()
 {
   // Initialize Pins
+  pinMode(STATUS_PIN, OUTPUT);
   pinMode(CLOCK_PIN, OUTPUT);
   pinMode(SI_PIN, INPUT);
   pinMode(SO_PIN, INPUT);
-
   pinMode(VEL_KNOB_PIN, INPUT);
 
 #ifdef DEBUG_MODE

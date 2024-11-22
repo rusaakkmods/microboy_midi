@@ -1,14 +1,13 @@
-rusaaKKMODS - Microboy MIDI
+rusaaKKMODS - MicroBOY MIDI
 ---------------------------
-
-This project knowledge is based on `my own research and analysis` of the MIDI protocol, LSDJ Byte reading, and Arduinoboy code. 
-
-
-`SPECIAL THANKS TO`:
+'SPECIAL THANKS TO:'
   - Johan Kotlinski (@johan_kotlinski) for his work on LSDJ.
   - Timothy Lamb (@trash80) for his work on Arduinoboy. It's a great reference for me.
-  - Nikita Bogdan (@nikitabogdan) & Alfian (instagram: @alfian_nay93) for PC ideas!
+  - Nikita Bogdan (@nikitabogdan) & Alfian (instagram: @alfian_nay93) for briliant PC ideas!
   - AND of course our kooky AI: GPT 4o (ChatGPT, Copilot). Why not!!
+
+ The code is still in the early stage, but it’s working as expected. The Gameboy is sending MIDI messages to the microcontroller, and the microcontroller is routing the messages to the MIDI output. 
+ The next step is to add more features to the microcontroller, such as saving the configuration to EEPROM, adding a rotary encoder to change the output channel, and adding a button to change the CC mode and scaling.
 
   Reading Gameboy Message LSDJ MI.OUT MODE
   ----------------------------------------

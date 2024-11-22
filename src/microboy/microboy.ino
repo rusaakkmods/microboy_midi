@@ -13,9 +13,9 @@
 // #define OLED_SDA SDA
 // #define OLED_SCL SCL
 #define STATUS_PIN LED_BUILTIN
-#define CLOCK_PIN A0 // to be connected to Gameboy Clock
-#define SO_PIN A1    // to be connected to Gameboy Serial In
-#define SI_PIN A2    // to be connected to Gameboy Serial Out
+#define CLOCK_PIN 15 // F7 to be connected to Gameboy Clock      //PB1
+#define SO_PIN 16    // F6 to be connected to Gameboy Serial In  //PB2
+#define SI_PIN 14    // F5 to be connected to Gameboy Serial Out //PB3
 #define VEL_KNOB_PIN A10
 
 // tweak these value to get better stability, lower value will give better stability but slower
@@ -204,7 +204,7 @@ void routeMessage(byte message, byte value)
   else if (command < 0x08)
   { // 4-7 represent CC message
     track = command - 0x04;
-    sendControlChange(track, value);
+    //sendControlChange(track, value);
   }
   else if (command < 0x0C)
   { // 8-11 represent PC message
@@ -225,7 +225,7 @@ void routeMessage(byte message, byte value)
     }
     else
     {
-      sendProgramChange(track, value);
+      //sendProgramChange(track, value);
     }
   }
   else if (command <= 0x0F)
@@ -270,12 +270,14 @@ byte readIncomingByte()
   for (uint8_t i = 0; i < 8; i++)
   {
     // use PORT instead of digitalWrite to reduce delay
-    PORTF |= (1 << PF7); // Set PORTF7 HIGH CLOCK_PIN 
+    PORTB |= (1 << PB1); // Set PORTF7 HIGH CLOCK_PIN 
+    digitalWrite(CLOCK_PIN, HIGH);
     delayMicroseconds(CLOCK_DELAY / 2);
 
-    receivedByte = (receivedByte << 1) + ((PINF & (1 << PINF5)) ? 1 : 0); // Read the bit from Gameboy Serial Out on SI_PIN
+    receivedByte = (receivedByte << 1) + ((PINB & (1 << PINB3)) ? 1 : 0); // Read the bit from Gameboy Serial Out on SI_PIN
 
-    PORTF &= ~(1 << PF7); // Set PORTF7 LOW
+    PORTB &= ~(1 << PB1); // Set PORTF7 LOW
+    //digitalWrite(CLOCK_PIN, LOW);
     delayMicroseconds(CLOCK_DELAY / 2);
   }
   // TODO: 
@@ -386,7 +388,7 @@ void setup()
   pinMode(CLOCK_PIN, OUTPUT);
   pinMode(SI_PIN, INPUT);
   pinMode(SO_PIN, INPUT);
-  pinMode(VEL_KNOB_PIN, INPUT);
+  //pinMode(VEL_KNOB_PIN, INPUT);
 
   digitalWrite(SO_PIN, LOW);
   digitalWrite(SI_PIN, LOW);

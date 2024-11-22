@@ -290,6 +290,7 @@ void readGameboy()
   byte command = readIncomingByte();
   if (command >= 0x7D)
   { // 125-127 realtime message
+    // todo: only enabled when clock detected
     routeRealtime(command);
   }
   else if (command >= 0x70)
@@ -333,7 +334,7 @@ void readGameboy()
 void readControl()
 {
   uint16_t knobValue = analogRead(VEL_KNOB_PIN);
-  velocity = map(knobValue, 0, 1023, 0, 128); // add offset 1 to get the actual value 127
+  velocity = map(knobValue, 0, 1023, 0, 127);
 
   displayMain();
 }
@@ -386,6 +387,9 @@ void setup()
   pinMode(SI_PIN, INPUT);
   pinMode(SO_PIN, INPUT);
   pinMode(VEL_KNOB_PIN, INPUT);
+
+  digitalWrite(SO_PIN, LOW);
+  digitalWrite(SI_PIN, LOW);
 
 #ifdef DEBUG_MODE
   Serial.begin(9600);

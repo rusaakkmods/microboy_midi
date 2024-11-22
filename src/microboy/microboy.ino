@@ -2,6 +2,8 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <avr/io.h>
+#include <avr/interrupt.h>
 
 #define PRODUCT_NAME "MicroBOY MIDI"
 #define VERSION "v0.0.1"
@@ -271,7 +273,7 @@ byte readIncomingByte()
   {
     // use PORT instead of digitalWrite to reduce delay
     PORTB |= (1 << PB1); // Set PORTF7 HIGH CLOCK_PIN 
-    digitalWrite(CLOCK_PIN, HIGH);
+    //digitalWrite(CLOCK_PIN, HIGH);
     delayMicroseconds(CLOCK_DELAY / 2);
 
     receivedByte = (receivedByte << 1) + ((PINB & (1 << PINB3)) ? 1 : 0); // Read the bit from Gameboy Serial Out on SI_PIN
@@ -381,6 +383,10 @@ void displayMain()
   }
 }
 
+ISR(PCINT0_vect) {
+  Serial.println("Interrupt");
+}
+
 void setup()
 {
   // Initialize Pins
@@ -388,7 +394,13 @@ void setup()
   pinMode(CLOCK_PIN, OUTPUT);
   pinMode(SI_PIN, INPUT);
   pinMode(SO_PIN, INPUT);
-  //pinMode(VEL_KNOB_PIN, INPUT);
+  pinMode(VEL_KNOB_PIN, INPUT);
+
+  // Enable pin change interrupt on PB3 (PCINT3)
+  PCICR |= (1 << PCIE0); // Enable pin change interrupt for PCINT[7:0]
+  PCMSK0 |= (1 << PCINT3); // Enable pin change interrupt for PB3
+
+  sei(); // Enable global interrupts
 
   digitalWrite(SO_PIN, LOW);
   digitalWrite(SI_PIN, LOW);

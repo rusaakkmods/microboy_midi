@@ -7,7 +7,7 @@
 #define VERSION "v0.0.1"
 #define RUSAAKKMODS "rusaaKKMODS @ 2024"
 
-//#define DEBUG_MODE
+#define DEBUG_MODE
 
 // RESERVERD PINS
 // #define OLED_SDA SDA
@@ -19,8 +19,9 @@
 #define VEL_KNOB_PIN A10
 
 // tweak these value to get better stability, lower value will give better stability but slower
-#define BIT_DELAY 21000
-#define BYTE_DELAY 2
+#define BIT_DELAY 1 // delay to read each bit from gameboy in microseconds
+#define BYTE_DELAY 1000 // delay to wait gameboy prepare next byte in microseconds
+#define MIDI_DELAY 20000 // // delay not to overflow the Microcontroller to crash! in microseconds //not yet sure why
 // #define SC_PERIOD 125                      // Gameboy Clock period in microseconds (approx. 8 kHz) !not yet sure it's necessary
 // #define PPQN 24                            // Pulses Per Quarter Note (PPQN) for MIDI clock
 
@@ -84,7 +85,7 @@ void noteStopAll()
   }
 }
 
-void sendNotes(byte track, byte note)
+void sendNote(byte track, byte note)
 {
   if (note)
   {                        // value > 0 then its a "Note On" 1-127 | LSDJ note range 0-119
@@ -197,12 +198,18 @@ void routeMessage(byte message, byte value)
   if (command < 0x04)
   { // 0-3 represent Track index
     track = command;
-    sendNotes(track, value);
+    sendNote(track, value);
+    #ifdef DEBUG_MODE
+      //Serial.println("Note");
+    #endif
   }
   else if (command < 0x08)
   { // 4-7 represent CC message
     track = command - 0x04;
     sendControlChange(track, value);
+    #ifdef DEBUG_MODE
+      Serial.println("Control Change!");
+    #endif
   }
   else if (command < 0x0C)
   { // 8-11 represent PC message
@@ -224,6 +231,9 @@ void routeMessage(byte message, byte value)
     else
     {
       sendProgramChange(track, value);
+      #ifdef DEBUG_MODE
+        Serial.println("Program Change!");
+      #endif
     }
   }
   else if (command <= 0x0F)
@@ -244,12 +254,15 @@ void routeRealtime(byte command)
   switch (command)
   {
   case 0x7D:
-    MIDI.sendRealTime(midi::Start);
+    //MIDI.sendRealTime(midi::Start);
+    #ifdef DEBUG_MODE
+      Serial.println("Start");
+    #endif
     break;
   case 0x7E:
     //todo avoid stop glitch
-    MIDI.sendRealTime(midi::Stop);
-    noteStopAll();
+    //MIDI.sendRealTime(midi::Stop);
+    //noteStopAll();
     #ifdef DEBUG_MODE
       Serial.println("Stop!");
     #endif
@@ -266,48 +279,48 @@ void routeRealtime(byte command)
   }
 }
 
-// byte readIncomingByte()
-// {
-//   byte receivedByte = 0;
-//   for (uint8_t i = 0; i < 8; i++)
-//   {
-//     // use PORT instead of digitalWrite to reduce delay
-//     PORTB |= (1 << PB1); // Set PORTF7 HIGH CLOCK_PIN 
-//     delayMicroseconds(2);
-
-//     receivedByte = (receivedByte << 1) + ((PINB & (1 << PINB3)) ? 1 : 0); // Read the bit from Gameboy Serial Out on SI_PIN
-//     delayMicroseconds(10000);
-//     PORTB &= ~(1 << PB1); // Set PORTF7 LOW CLOCK_PIN
-//     delayMicroseconds(10000);
-//   }
-//   // TODO: 
-//   // need to eliminate this delay in the future, millis/micros doesn't work well. 
-//   // I'm thinking other board implementation: pico for multithreading, freeRTOS!! but naahh!! I'll try using interrupt first!
-//   delayMicroseconds(BYTE_DELAY); // Small delay to allow Game Boy to prepare for the next byte transmission
-//   return receivedByte &= 0x7F; // Set the MSB range value to 0-127
-// }
-//#define GB_SET(bit_cl, bit_out, bit_in) PORTF = (PINF & B00011111) | ((bit_cl<<7) | ((bit_out)<<6) | ((bit_in)<<5))
-
 byte readIncomingByte()
 {
-  byte incomingMidiByte;
-  delayMicroseconds(BIT_DELAY);
-  PORTF &= ~(1 << PF7); // Set PORTF7 LOW CLOCK_PIN
-  delayMicroseconds(BIT_DELAY);
-  PORTF |= (1 << PF7); // Set PORTF7 HIGH CLOCK_PIN 
-  delayMicroseconds(BYTE_DELAY);
-  if(((PINF & (1 << PINF5)) ? 1 : 0)) {
-    incomingMidiByte = 0;
-    for(int i=0;i!=7;i++) {
-      PORTF &= ~(1 << PF7); // Set PORTF7 LOW CLOCK_PIN
-      delayMicroseconds(BYTE_DELAY);
-      PORTF |= (1 << PF7); // Set PORTF7 HIGH CLOCK_PIN 
-      incomingMidiByte = (incomingMidiByte << 1) + ((PINF & (1 << PINF5)) ? 1 : 0);
-    }
-    return incomingMidiByte;
+  byte receivedByte = 0;
+  delayMicroseconds(BYTE_DELAY); // delay to allow Game Boy to prepare for the next byte transmission
+  for (uint8_t i = 0; i < 8; i++)
+  {
+    // use PORT instead of digitalWrite to reduce delay
+    PORTF |= (1 << PF7); // Set PORTF7 HIGH CLOCK_PIN 
+    delayMicroseconds(BIT_DELAY);
+
+    receivedByte = (receivedByte << 1) + ((PINF & (1 << PINF5)) ? 1 : 0); // Read the bit from Gameboy Serial Out on SI_PIN
+
+    PORTF &= ~(1 << PF7); // Set PORTF7 LOW CLOCK_PIN
+    delayMicroseconds(BIT_DELAY);
   }
-  return 0x7F;
+  delayMicroseconds(MIDI_DELAY); // delay not to overflow the MIDI to crash! not yet sure why
+  return receivedByte &= 0x7F; // Set the MSB range value to 0-127
 }
+
+// This one based on Arduinoboy version, it is also stable less hiccups!!
+// Arduinoboy (https://github.com/trash80/Arduinoboy)
+// by Timothy Lamb @trash80
+// byte readIncomingByte()
+// {
+//   byte incomingMidiByte;
+//   delayMicroseconds(BYTE_DELAY);
+//   PORTF &= ~(1 << PF7); // Set PORTF7 LOW CLOCK_PIN
+//   delayMicroseconds(BYTE_DELAY);
+//   PORTF |= (1 << PF7); // Set PORTF7 HIGH CLOCK_PIN 
+//   delayMicroseconds(BIT_DELAY);
+//   if(((PINF & (1 << PINF5)) ? 1 : 0)) {
+//     incomingMidiByte = 0;
+//     for(int i=0;i!=7;i++) {
+//       PORTF &= ~(1 << PF7); // Set PORTF7 LOW CLOCK_PIN
+//       delayMicroseconds(BIT_DELAY);
+//       PORTF |= (1 << PF7); // Set PORTF7 HIGH CLOCK_PIN 
+//       incomingMidiByte = (incomingMidiByte << 1) + ((PINF & (1 << PINF5)) ? 1 : 0);
+//     }
+//     return incomingMidiByte;
+//   }
+//   return 0x7F;
+// }
 
 void readGameboy()
 {
@@ -409,10 +422,10 @@ void setup()
   pinMode(STATUS_PIN, OUTPUT);
   pinMode(CLOCK_PIN, OUTPUT);
   pinMode(SI_PIN, INPUT);
-  pinMode(SO_PIN, INPUT);
+  pinMode(SO_PIN, OUTPUT);
   pinMode(VEL_KNOB_PIN, INPUT);
 
-  digitalWrite(SO_PIN, LOW);
+  digitalWrite(SO_PIN, HIGH);
   digitalWrite(SI_PIN, HIGH);
 
 #ifdef DEBUG_MODE

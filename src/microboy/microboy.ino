@@ -13,14 +13,14 @@
 // #define OLED_SDA SDA
 // #define OLED_SCL SCL
 #define STATUS_PIN LED_BUILTIN
-#define CLOCK_PIN A0 // to be connected to Gameboy Clock
-#define SO_PIN A1    // to be connected to Gameboy Serial In
-#define SI_PIN A2    // to be connected to Gameboy Serial Out
+#define CLOCK_PIN A0  // to be connected to Gameboy Clock
+#define SO_PIN A1     // to be connected to Gameboy Serial In
+#define SI_PIN A2     // to be connected to Gameboy Serial Out
 #define VEL_KNOB_PIN A10
 
 // tweak these value to get better stability, lower value will give better stability but slower
 #define BIT_DELAY 1
-#define BYTE_DELAY 20000 //1000
+#define BYTE_DELAY 20000  //1000
 #define MIDI_DELAY 20000
 
 // OLED display
@@ -32,73 +32,63 @@ MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, MIDI);
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
-byte outputChannel[4] = {1, 2, 3, 4};         // default channel 1, 2, 3, 4 //TODO: controlable by rotary encoder and save in EEPROM
-bool ccMode[4] = {true, true, true, true};    // default CC mode 1, 1, 1, 1 //TODO: should be configurable maybe save in EEPROM
-bool ccScaling[4] = {true, true, true, true}; // default scaling 1, 1, 1, 1 //TODO: should be configurable maybe save in EEPROM
+byte outputChannel[4] = { 1, 2, 3, 4 };          // default channel 1, 2, 3, 4 //TODO: controlable by rotary encoder and save in EEPROM
+bool ccMode[4] = { true, true, true, true };     // default CC mode 1, 1, 1, 1 //TODO: should be configurable maybe save in EEPROM
+bool ccScaling[4] = { true, true, true, true };  // default scaling 1, 1, 1, 1 //TODO: should be configurable maybe save in EEPROM
 byte ccNumbers[4][7] = {
-    {1, 2, 3, 7, 10, 11, 12},
-    {1, 2, 3, 7, 10, 11, 12},
-    {1, 2, 3, 7, 10, 11, 12},
-    {1, 2, 3, 7, 10, 11, 12}}; // default CC numbers 1, 2, 3, 7, 10, 11, 12 //TODO: should be configurable maybe save in EEPROM
+  { 1, 2, 3, 7, 10, 11, 12 },
+  { 1, 2, 3, 7, 10, 11, 12 },
+  { 1, 2, 3, 7, 10, 11, 12 },
+  { 1, 2, 3, 7, 10, 11, 12 }
+};  // default CC numbers 1, 2, 3, 7, 10, 11, 12 //TODO: should be configurable maybe save in EEPROM
 
 uint64_t lastPrint = 0;
 uint64_t lastClockTime = 0;
 uint16_t bpm = 0;
 
 // track 0-PU1, 1-PU2, 2-WAV, 3-NOI
-volatile byte lastNote[4] = {0, 0, 0, 0}; 
-volatile byte velocity = 127;               // adjustable Global Velocity, affecting all channels
-volatile byte lastTrack = 0;                // Track with the shortest update interval
+volatile byte lastNote[4] = { 0, 0, 0, 0 };
+volatile byte velocity = 127;  // adjustable Global Velocity, affecting all channels
+volatile byte lastTrack = 0;   // Track with the shortest update interval
 
-void calculateBPM()
-{
+void calculateBPM() {
   uint64_t currentTime = millis();
   uint64_t elapsedTime = currentTime - lastClockTime;
   bpm = 60000 / (elapsedTime * 4);
   lastClockTime = currentTime;
 }
 
-void notePlay(byte track, byte note)
-{
-  noteStop(track); // stop previous note consider each track is monophonics
+void notePlay(byte track, byte note) {
+  noteStop(track);  // stop previous note consider each track is monophonics
   MIDI.sendNoteOn(note, velocity, outputChannel[track]);
 
   lastNote[track] = note;
 }
 
-void noteStop(byte track)
-{
+void noteStop(byte track) {
   byte note = lastNote[track];
-  if (note)
-  {
+  if (note) {
     MIDI.sendNoteOff(note, 0x00, outputChannel[track]);
 
     lastNote[track] = 0;
   }
 }
 
-void noteStopAll()
-{
-  for (uint8_t track = 0; track < 4; track++)
-  {
+void noteStopAll() {
+  for (uint8_t track = 0; track < 4; track++) {
     noteStop(track);
   }
 }
 
-void sendNote(byte track, byte note)
-{
-  if (note)
-  { // value > 0 then its a "Note On" 1-127 | LSDJ note range 0-119
+void sendNote(byte track, byte note) {
+  if (note) {  // value > 0 then its a "Note On" 1-127 | LSDJ note range 0-119
     notePlay(track, note);
-  }
-  else
-  { // value 0 then its a "Note Off"
+  } else {  // value 0 then its a "Note Off"
     noteStop(track);
   }
 }
 
-void sendClock()
-{
+void sendClock() {
   // Send 6 MIDI clock messages LSDJ step per step to simulate 24 PPQN
   // for (uint8_t tick = 0; tick < 6; tick++)
   // {
@@ -106,7 +96,7 @@ void sendClock()
   //   delayMicroseconds(2); // give a very small delay
   // }
   // todo: fix interval and rate
-  //MIDI.sendRealTime(midi::Clock);
+  MIDI.sendRealTime(midi::Clock);
   calculateBPM();
 }
 
@@ -135,39 +125,29 @@ void sendClock()
 // default options: {1,2,3,7,10,11,12} for each track, these options are CC numbers for lsdj midi out
 // If CC Mode is 1, all 7 ccs options are used per channel at the cost of a limited resolution of 0-F
 */
-void sendControlChange(byte track, byte value)
-{
+void sendControlChange(byte track, byte value) {
   byte ccNumber;
   byte ccValue;
 
-  if (ccMode[track])
-  {
-    if (ccScaling[track])
-    {
+  if (ccMode[track]) {
+    if (ccScaling[track]) {
       // CC Mode 1 with scaling
-      ccNumber = ccNumbers[track][(value & 0xF0) >> 4]; // High nibble
-      ccValue = map(value & 0x0F, 0, 15, 0, 127);       // Low nibble
-    }
-    else
-    {
+      ccNumber = ccNumbers[track][(value & 0xF0) >> 4];  // High nibble
+      ccValue = map(value & 0x0F, 0, 15, 0, 127);        // Low nibble
+    } else {
       // CC Mode 1 without scaling
-      ccNumber = ccNumbers[track][(value & 0xF0) >> 4]; // High nibble
-      ccValue = value & 0x0F;                           // Low nibble
+      ccNumber = ccNumbers[track][(value & 0xF0) >> 4];  // High nibble
+      ccValue = value & 0x0F;                            // Low nibble
     }
-  }
-  else
-  {
-    if (ccScaling[track])
-    {
+  } else {
+    if (ccScaling[track]) {
       // CC Mode 0 with scaling
-      ccNumber = ccNumbers[track][0];       // Use the first CC number for Mode 0
-      ccValue = map(value, 0, 112, 0, 127); // Scale the value
-    }
-    else
-    {
+      ccNumber = ccNumbers[track][0];        // Use the first CC number for Mode 0
+      ccValue = map(value, 0, 112, 0, 127);  // Scale the value
+    } else {
       // CC Mode 0 without scaling
-      ccNumber = ccNumbers[track][0]; // Use the first CC number for Mode 0
-      ccValue = value;                // Direct value
+      ccNumber = ccNumbers[track][0];  // Use the first CC number for Mode 0
+      ccValue = value;                 // Direct value
     }
   }
 
@@ -181,8 +161,7 @@ void sendControlChange(byte track, byte value)
 #endif
 }
 
-void sendProgramChange(byte track, byte value)
-{
+void sendProgramChange(byte track, byte value) {
   MIDI.sendProgramChange(value, outputChannel[track]);
 
 #ifdef DEBUG_MODE
@@ -193,78 +172,64 @@ void sendProgramChange(byte track, byte value)
 #endif
 }
 
-void routeMessage(byte message, byte value)
-{
+void routeMessage(byte message, byte value) {
   byte command = message - 0x70;
   byte track = 0;
-  if (command < 0x04)
-  { // 0-3 represent Track index
+  if (command < 0x04) {  // 0-3 represent Track index
     track = command;
     sendNote(track, value);
-  }
-  else if (command < 0x08)
-  { // 4-7 represent CC message
+  } else if (command < 0x08) {  // 4-7 represent CC message
     track = command - 0x04;
-    //sendControlChange(track, value);
-    #ifdef DEBUG_MODE
-      Serial.println("Control Change!");
-    #endif
-  }
-  else if (command < 0x0C)
-  { // 8-11 represent PC message
+    sendControlChange(track, value);
+#ifdef DEBUG_MODE
+    Serial.println("Control Change!");
+#endif
+  } else if (command < 0x0C) {  // 8-11 represent PC message
     track = command - 0x08;
-    if (value == 0x7F) // let's use the GUNSHOT!!! y-FF command!
+    if (value == 0x7F)  // let's use the GUNSHOT!!! y-FF command!
     {
-      //sendClock(); //it works but still need to fix
+      sendClock();  //it works but still need to fix
+    } else {
+      sendProgramChange(track, value);
+#ifdef DEBUG_MODE
+      Serial.println("Program Change!");
+#endif
     }
-    else
-    {
-      //sendProgramChange(track, value);
-      #ifdef DEBUG_MODE
-        Serial.println("Program Change!");
-      #endif
-    }
-  }
-  else if (command <= 0x0F)
-  { // 12-15 not yet sure!
+  } else if (command <= 0x0F) {  // 12-15 not yet sure!
     track = command - 0x0C;
     // unknown! skip consume one value byte usually 0 or 127
-  }
-  else
-  {
+  } else {
     // not supposed to happened!!
     return;
   }
   lastTrack = track;
 }
 
-void routeRealtime(byte command)
-{
-  switch (command)
-  {
-  case 0x7D:
-    //MIDI.sendRealTime(midi::Start);
-    #ifdef DEBUG_MODE
-      Serial.println("Start");
-    #endif
-    break;
-  case 0x7E:
-    // todo avoid stop glitch
-    //MIDI.sendRealTime(midi::Stop);
-    //noteStopAll();
-    #ifdef DEBUG_MODE
-      Serial.println("Stop!");
-    #endif
-    break;
-  case 0x7F:
-    // microboy byte reading clock!! ignore for now.. very missleading....
-    break;
-  default:
+void routeRealtime(byte command) {
+  switch (command) {
+    case 0x7D:
+      MIDI.sendRealTime(midi::Start);
 #ifdef DEBUG_MODE
-    Serial.print("Unknown Realtime: ");
-    Serial.print(command);
+      Serial.println("Start");
 #endif
-    break;
+      break;
+    case 0x7E:
+      // todo avoid stop glitch
+      MIDI.sendRealTime(midi::Stop);
+//noteStopAll();
+#ifdef DEBUG_MODE
+      Serial.println("Stop!");
+#endif
+      break;
+    case 0x7F:
+      // microboy byte reading clock!! ignore for now.. very missleading....
+      break;
+    default:
+#ifdef DEBUG_MODE
+      Serial.print("Unknown Realtime: ");
+      Serial.print(command);
+#endif
+      break;
   }
 }
 
@@ -292,20 +257,19 @@ void routeRealtime(byte command)
 // Arduinoboy (https://github.com/trash80/Arduinoboy)
 // by Timothy Lamb @trash80
 */
-byte readIncomingByte()
-{
+byte readIncomingByte() {
   byte incomingMidiByte;
   delayMicroseconds(BYTE_DELAY);
-  PORTF &= ~(1 << PF7); // Set PORTF7 LOW CLOCK_PIN
+  PORTF &= ~(1 << PF7);  // Set PORTF7 LOW CLOCK_PIN
   delayMicroseconds(BYTE_DELAY);
-  PORTF |= (1 << PF7); // Set PORTF7 HIGH CLOCK_PIN 
+  PORTF |= (1 << PF7);  // Set PORTF7 HIGH CLOCK_PIN
   delayMicroseconds(BIT_DELAY);
-  if(((PINF & (1 << PINF5)) ? 1 : 0)) {
+  if (((PINF & (1 << PINF5)) ? 1 : 0)) {
     incomingMidiByte = 0;
-    for(int i=0;i!=7;i++) {
-      PORTF &= ~(1 << PF7); // Set PORTF7 LOW CLOCK_PIN
+    for (int i = 0; i != 7; i++) {
+      PORTF &= ~(1 << PF7);  // Set PORTF7 LOW CLOCK_PIN
       delayMicroseconds(BIT_DELAY);
-      PORTF |= (1 << PF7); // Set PORTF7 HIGH CLOCK_PIN 
+      PORTF |= (1 << PF7);  // Set PORTF7 HIGH CLOCK_PIN
       incomingMidiByte = (incomingMidiByte << 1) + ((PINF & (1 << PINF5)) ? 1 : 0);
     }
     return incomingMidiByte;
@@ -319,67 +283,53 @@ bool isCommandWaiting = false;
 byte commandWaiting = 0x00;
 byte experimentalCorrection = 0x00;
 
-void readGameboy()
-{
+void readGameboy() {
   //uint64_t currentTime = micros();   // non-blocking read
   //if (currentTime - lastReadGameboy < MIDI_DELAY) return;
-  
+
   byte value = readIncomingByte();
   lastReadGameboy = micros();
 
   if (isCommandWaiting) {
     routeMessage(commandWaiting, value);
     isCommandWaiting = false;
-    
+
     experimentalCorrection = commandWaiting;
     commandWaiting = 0x00;
-  } else if (value >= 0x7D)
-  { // 125-127 realtime message
+  } else if (value >= 0x7D) {  // 125-127 realtime message
     routeRealtime(value);
-  } else if (value >= 0x70)
-  { // 112-124 command message
+  } else if (value >= 0x70) {  // 112-124 command message
     isCommandWaiting = true;
     commandWaiting = value;
-  } else
-  { // 0 - 111 Hiccups!!! not supposed to happened!!
+  } else {  // 0 - 111 Hiccups!!! not supposed to happened!!
 #ifdef DEBUG_MODE
-    if (value == 0)
-    {
+    if (value == 0) {
       Serial.print("Hiccups! Off:");
-    }
-    else if (value > 0x0F)
-    {
+    } else if (value > 0x0F) {
       Serial.print("Hiccups! Note:");
-    }
-    else
-    {
+    } else {
       Serial.print("Hiccups! Command:");
     }
     Serial.println(value);
 #endif
     // EXPERIMENTAL HICCUPS! CORRECTION!! LOL
-    if (experimentalCorrection)
-    { //use the last command
+    if (experimentalCorrection) {  //use the last command
       routeMessage(experimentalCorrection, value);
       experimentalCorrection = 0x00;
-    }
-    else
-    { //use the last track
+    } else {  //use the last track
       routeMessage(lastTrack + 0x70, value);
     }
   }
 }
 
-void readControl()
-{
+void readControl() {
   uint16_t knobValue = analogRead(VEL_KNOB_PIN);
   velocity = map(knobValue, 0, 1023, 0, 127);
 
   displayMain();
 }
 
-void displaySplash()
-{
+void displaySplash() {
   display.clearDisplay();
   display.setCursor(0, 0);
   display.println(PRODUCT_NAME);
@@ -390,11 +340,9 @@ void displaySplash()
   display.display();
 }
 
-void displayMain()
-{
+void displayMain() {
   uint64_t currentTime = millis();
-  if (currentTime - lastPrint >= 1000)
-  { // update display every 1 second
+  if (currentTime - lastPrint >= 1000) {  // update display every 1 second
     display.clearDisplay();
     display.setCursor(0, 0);
     display.print("PU1 [");
@@ -418,8 +366,7 @@ void displayMain()
   }
 }
 
-void setup()
-{
+void setup() {
   // Initialize Pins
   pinMode(STATUS_PIN, OUTPUT);
   pinMode(CLOCK_PIN, OUTPUT);
@@ -448,8 +395,7 @@ void setup()
   displaySplash();
 }
 
-void loop()
-{
+void loop() {
   readControl();
   readGameboy();
 }

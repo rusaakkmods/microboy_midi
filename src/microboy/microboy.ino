@@ -1,4 +1,5 @@
 #include <MIDI.h>
+#include <MIDIUSB.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
@@ -7,7 +8,7 @@
 #define VERSION "v0.0.1"
 #define RUSAAKKMODS "rusaaKKMODS @ 2024"
 
-#define DEBUG_MODE
+//#define DEBUG_MODE
 
 // RESERVERD PINS
 // #define OLED_SDA SDA
@@ -20,7 +21,7 @@
 
 // tweak these value to get better stability, lower value will give better stability but slower
 #define BIT_DELAY 1
-#define BYTE_DELAY 20000  //1000
+#define BYTE_DELAY 20000
 #define MIDI_DELAY 20000
 
 // OLED display
@@ -60,6 +61,11 @@ void calculateBPM() {
 
 void notePlay(byte track, byte note) {
   noteStop(track);  // stop previous note consider each track is monophonics
+  //send to USB MIDI
+  midiEventPacket_t message = { 0x09, 0x90 | outputChannel[track], note, velocity };
+  MidiUSB.sendMIDI(message);
+
+  //send to Serial MIDI
   MIDI.sendNoteOn(note, velocity, outputChannel[track]);
 
   lastNote[track] = note;
@@ -68,6 +74,10 @@ void notePlay(byte track, byte note) {
 void noteStop(byte track) {
   byte note = lastNote[track];
   if (note) {
+    //send to USB MIDI
+    midiEventPacket_t message = { 0x08, 0x80 | outputChannel[track], note, 0x00 };
+    MidiUSB.sendMIDI(message);
+    
     MIDI.sendNoteOff(note, 0x00, outputChannel[track]);
 
     lastNote[track] = 0;
@@ -96,7 +106,14 @@ void sendClock() {
   //   delayMicroseconds(2); // give a very small delay
   // }
   // todo: fix interval and rate
+
+  //send to USB MIDI
+  midiEventPacket_t message = { 0x0F, 0xF8, 0x00 };  // MIDI Clock
+  MidiUSB.sendMIDI(message);
+
+  //send to Serial MIDI
   MIDI.sendRealTime(midi::Clock);
+
   calculateBPM();
 }
 
@@ -151,6 +168,11 @@ void sendControlChange(byte track, byte value) {
     }
   }
 
+  //send to USB MIDI
+  midiEventPacket_t message = { 0xB0 | outputChannel[track], ccNumber, ccValue };
+  MidiUSB.sendMIDI(message);
+
+  //send to Serial MIDI
   MIDI.sendControlChange(ccNumber, ccValue, outputChannel[track]);
 
 #ifdef DEBUG_MODE
@@ -162,6 +184,11 @@ void sendControlChange(byte track, byte value) {
 }
 
 void sendProgramChange(byte track, byte value) {
+  //send to USB MIDI
+  midiEventPacket_t message = { 0xC0 | outputChannel[track], value, 0x00 };
+  MidiUSB.sendMIDI(message);
+
+  //send to Serial MIDI
   MIDI.sendProgramChange(value, outputChannel[track]);
 
 #ifdef DEBUG_MODE
@@ -206,8 +233,14 @@ void routeMessage(byte message, byte value) {
 }
 
 void routeRealtime(byte command) {
+  midiEventPacket_t message;
   switch (command) {
     case 0x7D:
+      //send start to USB MIDI
+      message = { 0xFA };
+      MidiUSB.sendMIDI(message);
+
+      //send start to Serial MIDI
       MIDI.sendRealTime(midi::Start);
 #ifdef DEBUG_MODE
       Serial.println("Start");
@@ -215,8 +248,15 @@ void routeRealtime(byte command) {
       break;
     case 0x7E:
       // todo avoid stop glitch
+      //send stop to USB MIDI
+      message = { 0xFC };
+      MidiUSB.sendMIDI(message);
+      MidiUSB.flush();
+
+      //send stop to Serial MIDI
       MIDI.sendRealTime(midi::Stop);
-//noteStopAll();
+      MIDI.read();
+      noteStopAll();
 #ifdef DEBUG_MODE
       Serial.println("Stop!");
 #endif
@@ -233,49 +273,48 @@ void routeRealtime(byte command) {
   }
 }
 
-//less hiccups!!
-// byte readIncomingByte()
-// {
-//   byte receivedByte = 0;
-//   PORTF |= (1 << PF6); // making sure Gameboy Serial In is HIGH! explanation: docs/references/gb_link_serial_in.md
-//   for (uint8_t i = 0; i < 8; i++)
-//   {
-//     PORTF |= (1 << PF7); // Set HIGH
-//     delayMicroseconds(BIT_DELAY);
+byte readIncomingByte()
+{
+  byte receivedByte = 0;
+  PORTF |= (1 << PF6); // making sure Gameboy Serial In is HIGH! explanation: docs/references/gb_link_serial_in.md
+  for (uint8_t i = 0; i < 8; i++)
+  {
+    PORTF |= (1 << PF7); // Set HIGH
+    delayMicroseconds(BIT_DELAY);
 
-//     receivedByte = (receivedByte << 1) + ((PINF & (1 << PINF5)) ? 1 : 0); // Read a bit, and shift it into the byte
-//     //if (i == 0 && receivedByte == 0) return 0x7F;
+    receivedByte = (receivedByte << 1) + ((PINF & (1 << PINF5)) ? 1 : 0); // Read a bit, and shift it into the byte
+    //if (i == 0 && receivedByte == 0) return 0x7F;
 
-//     PORTF &= ~(1 << PF7); // Set LOW
-//     delayMicroseconds(BIT_DELAY);
-//   }
-//   delayMicroseconds(MIDI_DELAY);
-//   return receivedByte &= 0x7F; // Set the MSB range value to 0-127
-// }
+    PORTF &= ~(1 << PF7); // Set LOW
+    delayMicroseconds(BIT_DELAY);
+  }
+  delayMicroseconds(MIDI_DELAY);
+  return receivedByte &= 0x7F; // Set the MSB range value to 0-127
+}
 
-/* This one based on Arduinoboy version, it is also stable
+/* This one based on Arduinoboy version, it is more stable on higher tempo
 // Arduinoboy (https://github.com/trash80/Arduinoboy)
 // by Timothy Lamb @trash80
 */
-byte readIncomingByte() {
-  byte incomingMidiByte;
-  delayMicroseconds(BYTE_DELAY);
-  PORTF &= ~(1 << PF7);  // Set PORTF7 LOW CLOCK_PIN
-  delayMicroseconds(BYTE_DELAY);
-  PORTF |= (1 << PF7);  // Set PORTF7 HIGH CLOCK_PIN
-  delayMicroseconds(BIT_DELAY);
-  if (((PINF & (1 << PINF5)) ? 1 : 0)) {
-    incomingMidiByte = 0;
-    for (int i = 0; i != 7; i++) {
-      PORTF &= ~(1 << PF7);  // Set PORTF7 LOW CLOCK_PIN
-      delayMicroseconds(BIT_DELAY);
-      PORTF |= (1 << PF7);  // Set PORTF7 HIGH CLOCK_PIN
-      incomingMidiByte = (incomingMidiByte << 1) + ((PINF & (1 << PINF5)) ? 1 : 0);
-    }
-    return incomingMidiByte;
-  }
-  return 0x7F;
-}
+// byte readIncomingByte() {
+//   byte incomingMidiByte;
+//   delayMicroseconds(BYTE_DELAY);
+//   PORTF &= ~(1 << PF7);  // Set PORTF7 LOW CLOCK_PIN
+//   delayMicroseconds(BYTE_DELAY);
+//   PORTF |= (1 << PF7);  // Set PORTF7 HIGH CLOCK_PIN
+//   delayMicroseconds(BIT_DELAY);
+//   if (((PINF & (1 << PINF5)) ? 1 : 0)) {
+//     incomingMidiByte = 0;
+//     for (int i = 0; i != 7; i++) {
+//       PORTF &= ~(1 << PF7);  // Set PORTF7 LOW CLOCK_PIN
+//       delayMicroseconds(BIT_DELAY);
+//       PORTF |= (1 << PF7);  // Set PORTF7 HIGH CLOCK_PIN
+//       incomingMidiByte = (incomingMidiByte << 1) + ((PINF & (1 << PINF5)) ? 1 : 0);
+//     }
+//     return incomingMidiByte;
+//   }
+//   return 0x7F;
+// }
 
 
 uint64_t lastReadGameboy = 0;
@@ -284,7 +323,9 @@ byte commandWaiting = 0x00;
 byte experimentalCorrection = 0x00;
 
 void readGameboy() {
-  //uint64_t currentTime = micros();   // non-blocking read
+
+  //enable this for non-blocking read
+  //uint64_t currentTime = micros();
   //if (currentTime - lastReadGameboy < MIDI_DELAY) return;
 
   byte value = readIncomingByte();
@@ -378,13 +419,15 @@ void setup() {
   //digitalWrite(SO_PIN, HIGH);
 
 #ifdef DEBUG_MODE
-  Serial.begin(9600);
+  Serial.begin(115200);
 #endif
 
   // Initialize MIDI Serial Communication
   Serial1.begin(31250);
   MIDI.begin(MIDI_CHANNEL_OMNI);
+
   MIDI.read();
+  MidiUSB.flush();
 
   // Initialize I2C for OLED
   Wire.begin();

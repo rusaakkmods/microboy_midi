@@ -273,48 +273,48 @@ void routeRealtime(byte command) {
   }
 }
 
-byte readIncomingByte()
-{
-  byte receivedByte = 0;
-  PORTF |= (1 << PF6); // making sure Gameboy Serial In is HIGH! explanation: docs/references/gb_link_serial_in.md
-  for (uint8_t i = 0; i < 8; i++)
-  {
-    PORTF |= (1 << PF7); // Set HIGH
-    delayMicroseconds(BIT_DELAY);
+// byte readIncomingByte()
+// {
+//   byte receivedByte = 0;
+//   PORTF |= (1 << PF6); // making sure Gameboy Serial In is HIGH! explanation: docs/references/gb_link_serial_in.md
+//   for (uint8_t i = 0; i < 8; i++)
+//   {
+//     PORTF |= (1 << PF7); // Set HIGH
+//     delayMicroseconds(BIT_DELAY);
 
-    receivedByte = (receivedByte << 1) + ((PINF & (1 << PINF5)) ? 1 : 0); // Read a bit, and shift it into the byte
-    //if (i == 0 && receivedByte == 0) return 0x7F;
+//     receivedByte = (receivedByte << 1) + ((PINF & (1 << PINF5)) ? 1 : 0); // Read a bit, and shift it into the byte
+//     //if (i == 0 && receivedByte == 0) return 0x7F;
 
-    PORTF &= ~(1 << PF7); // Set LOW
-    delayMicroseconds(BIT_DELAY);
-  }
-  delayMicroseconds(MIDI_DELAY);
-  return receivedByte &= 0x7F; // Set the MSB range value to 0-127
-}
+//     PORTF &= ~(1 << PF7); // Set LOW
+//     delayMicroseconds(BIT_DELAY);
+//   }
+//   delayMicroseconds(MIDI_DELAY);
+//   return receivedByte &= 0x7F; // Set the MSB range value to 0-127
+// }
 
 /* This one based on Arduinoboy version, it is more stable on higher tempo
 // Arduinoboy (https://github.com/trash80/Arduinoboy)
 // by Timothy Lamb @trash80
 */
-// byte readIncomingByte() {
-//   byte incomingMidiByte;
-//   delayMicroseconds(BYTE_DELAY);
-//   PORTF &= ~(1 << PF7);  // Set PORTF7 LOW CLOCK_PIN
-//   delayMicroseconds(BYTE_DELAY);
-//   PORTF |= (1 << PF7);  // Set PORTF7 HIGH CLOCK_PIN
-//   delayMicroseconds(BIT_DELAY);
-//   if (((PINF & (1 << PINF5)) ? 1 : 0)) {
-//     incomingMidiByte = 0;
-//     for (int i = 0; i != 7; i++) {
-//       PORTF &= ~(1 << PF7);  // Set PORTF7 LOW CLOCK_PIN
-//       delayMicroseconds(BIT_DELAY);
-//       PORTF |= (1 << PF7);  // Set PORTF7 HIGH CLOCK_PIN
-//       incomingMidiByte = (incomingMidiByte << 1) + ((PINF & (1 << PINF5)) ? 1 : 0);
-//     }
-//     return incomingMidiByte;
-//   }
-//   return 0x7F;
-// }
+byte readIncomingByte() {
+  byte incomingMidiByte;
+  delayMicroseconds(BYTE_DELAY);
+  PORTF &= ~(1 << PF7);  // Set PORTF7 LOW CLOCK_PIN
+  delayMicroseconds(BYTE_DELAY);
+  PORTF |= (1 << PF7);  // Set PORTF7 HIGH CLOCK_PIN
+  delayMicroseconds(BIT_DELAY);
+  if (((PINF & (1 << PINF5)) ? 1 : 0)) {
+    incomingMidiByte = 0;
+    for (int i = 0; i != 7; i++) {
+      PORTF &= ~(1 << PF7);  // Set PORTF7 LOW CLOCK_PIN
+      delayMicroseconds(BIT_DELAY);
+      PORTF |= (1 << PF7);  // Set PORTF7 HIGH CLOCK_PIN
+      incomingMidiByte = (incomingMidiByte << 1) + ((PINF & (1 << PINF5)) ? 1 : 0);
+    }
+    return incomingMidiByte;
+  }
+  return 0x7F;
+}
 
 
 uint64_t lastReadGameboy = 0;

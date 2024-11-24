@@ -18,6 +18,7 @@
 #define SO_PIN A1     // to be connected to Gameboy Serial In
 #define SI_PIN A2     // to be connected to Gameboy Serial Out
 
+// rotary encoder for control and settings
 #define ROTARY_CLK 9
 #define ROTARY_DT 8
 #define ROTARY_SW 7

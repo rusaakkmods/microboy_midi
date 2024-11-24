@@ -3,6 +3,7 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <limits.h>
 
 #define PRODUCT_NAME "MicroBOY MIDI"
 #define VERSION "v0.0.1"
@@ -13,11 +14,13 @@
 // RESERVERD PINS
 // #define OLED_SDA SDA
 // #define OLED_SCL SCL
-#define STATUS_PIN LED_BUILTIN
 #define CLOCK_PIN A0  // to be connected to Gameboy Clock
 #define SO_PIN A1     // to be connected to Gameboy Serial In
 #define SI_PIN A2     // to be connected to Gameboy Serial Out
-#define VEL_KNOB_PIN A10
+
+#define ROTARY_CLK 9
+#define ROTARY_DT 8
+#define ROTARY_SW 7
 
 // tweak these value to get better stability, lower value will give better stability but slower
 #define BIT_DELAY 1
@@ -45,28 +48,28 @@ byte ccNumbers[4][7] = {
 
 uint64_t lastPrint = 0;
 uint64_t lastClockTime = 0;
-uint16_t bpm = 0;
+long bpm = 0;
 
 // track 0-PU1, 1-PU2, 2-WAV, 3-NOI
 volatile byte lastNote[4] = { 0, 0, 0, 0 };
-volatile byte velocity = 127;  // adjustable Global Velocity, affecting all channels
+volatile int velocity = 127;  // adjustable Global Velocity, affecting all channels
 volatile byte lastTrack = 0;   // Track with the shortest update interval
 
-void calculateBPM() {
-  uint64_t currentTime = millis();
-  uint64_t elapsedTime = currentTime - lastClockTime;
-  bpm = 60000 / (elapsedTime * 4);
-  lastClockTime = currentTime;
-}
+// rotary control
+byte switchControlState;
+bool lastControlState = HIGH;
+bool controlPressed = false;
 
-void notePlay(byte track, byte note) {
+void noteOn(byte track, byte note) {
   noteStop(track);  // stop previous note consider each track is monophonics
   //send to USB MIDI
-  midiEventPacket_t message = { 0x09, 0x90 | outputChannel[track], note, velocity };
+  midiEventPacket_t message = { 0x09, 0x90 | outputChannel[track]-1, note, velocity };
   MidiUSB.sendMIDI(message);
+  MidiUSB.flush();
 
   //send to Serial MIDI
   MIDI.sendNoteOn(note, velocity, outputChannel[track]);
+  MIDI.read();
 
   lastNote[track] = note;
 }
@@ -75,10 +78,12 @@ void noteStop(byte track) {
   byte note = lastNote[track];
   if (note) {
     //send to USB MIDI
-    midiEventPacket_t message = { 0x08, 0x80 | outputChannel[track], note, 0x00 };
+    midiEventPacket_t message = { 0x08, 0x80 | outputChannel[track]-1, note, 0x00 };
     MidiUSB.sendMIDI(message);
+    MidiUSB.flush();
     
     MIDI.sendNoteOff(note, 0x00, outputChannel[track]);
+    MIDI.read();
 
     lastNote[track] = 0;
   }
@@ -92,29 +97,35 @@ void noteStopAll() {
 
 void sendNote(byte track, byte note) {
   if (note) {  // value > 0 then its a "Note On" 1-127 | LSDJ note range 0-119
-    notePlay(track, note);
+    noteOn(track, note);
   } else {  // value 0 then its a "Note Off"
     noteStop(track);
   }
 }
 
+uint64_t lastTapTime = 0;
+float interval = 0;
+
 void sendClock() {
-  // Send 6 MIDI clock messages LSDJ step per step to simulate 24 PPQN
-  // for (uint8_t tick = 0; tick < 6; tick++)
-  // {
-  //   MIDI.sendRealTime(midi::Clock);
-  //   delayMicroseconds(2); // give a very small delay
-  // }
-  // todo: fix interval and rate
+  unsigned long currentTime = millis();
+  unsigned long currentInterval = (currentTime - lastTapTime) / 6;
+  lastTapTime = currentTime;
 
-  //send to USB MIDI
-  midiEventPacket_t message = { 0x0F, 0xF8, 0x00 };  // MIDI Clock
-  MidiUSB.sendMIDI(message);
+  if (interval >= 0) // skip
+  {
+    interval = 0.5 * currentInterval + (1 - 0.5) * interval;  
 
-  //send to Serial MIDI
-  MIDI.sendRealTime(midi::Clock);
+    // for(int i = 0; i < 6; i++) { // move to unblocking 
+    //   midiEventPacket_t message = { 0x0F, 0xF8, 0x00 };  // MIDI Clock
+    //   MidiUSB.sendMIDI(message);
+    //   MidiUSB.flush();
 
-  calculateBPM();
+    //   MIDI.sendRealTime(midi::Clock);
+    //   MIDI.read();
+    //   delay(interval);
+    // }
+    bpm = interval;
+  } else interval = currentInterval;
 }
 
 /* Reference from Arduinoboy (https://github.com/trash80/Arduinoboy)
@@ -169,11 +180,13 @@ void sendControlChange(byte track, byte value) {
   }
 
   //send to USB MIDI
-  midiEventPacket_t message = { 0xB0 | outputChannel[track], ccNumber, ccValue };
+  midiEventPacket_t message = { 0xB0 | outputChannel[track]-1, ccNumber, ccValue };
   MidiUSB.sendMIDI(message);
+  MidiUSB.flush();
 
   //send to Serial MIDI
   MIDI.sendControlChange(ccNumber, ccValue, outputChannel[track]);
+  MIDI.read();
 
 #ifdef DEBUG_MODE
   Serial.print("CC Command - track:");
@@ -185,11 +198,13 @@ void sendControlChange(byte track, byte value) {
 
 void sendProgramChange(byte track, byte value) {
   //send to USB MIDI
-  midiEventPacket_t message = { 0xC0 | outputChannel[track], value, 0x00 };
+  midiEventPacket_t message = { 0xC0 | outputChannel[track]-1, value, 0x00 };
   MidiUSB.sendMIDI(message);
+  MidiUSB.flush();
 
   //send to Serial MIDI
   MIDI.sendProgramChange(value, outputChannel[track]);
+  MIDI.read();
 
 #ifdef DEBUG_MODE
   Serial.print("PC Command - track:");
@@ -239,9 +254,15 @@ void routeRealtime(byte command) {
       //send start to USB MIDI
       message = { 0xFA };
       MidiUSB.sendMIDI(message);
+      MidiUSB.flush();
 
       //send start to Serial MIDI
       MIDI.sendRealTime(midi::Start);
+      MIDI.read();
+
+      lastTapTime = 0;
+      interval = 0;
+      bpm = 0;
 #ifdef DEBUG_MODE
       Serial.println("Start");
 #endif
@@ -256,6 +277,10 @@ void routeRealtime(byte command) {
       //send stop to Serial MIDI
       MIDI.sendRealTime(midi::Stop);
       MIDI.read();
+
+      lastTapTime = 0;
+      interval = 0;
+      bpm = 0;
       noteStopAll();
 #ifdef DEBUG_MODE
       Serial.println("Stop!");
@@ -363,9 +388,30 @@ void readGameboy() {
   }
 }
 
+ISR(PCINT0_vect) {
+  bool pinState = PINB & (1 << PB5);
+  if (lastControlState == HIGH && pinState == LOW) {
+    if (digitalRead(ROTARY_DT)) {
+      velocity++;
+    } else {
+      velocity--;
+    }
+    velocity = constrain(velocity, 0, 127);
+  }
+  lastControlState = pinState;
+}
+
+
 void readControl() {
-  uint16_t knobValue = analogRead(VEL_KNOB_PIN);
-  velocity = map(knobValue, 0, 1023, 0, 127);
+  switchControlState = digitalRead(ROTARY_SW);
+  if (switchControlState == LOW && !controlPressed) {
+    velocity = 0;
+    controlPressed = true;
+  }
+
+  if (switchControlState == HIGH) {
+    controlPressed = false;
+  }
 
   displayMain();
 }
@@ -407,21 +453,28 @@ void displayMain() {
   }
 }
 
+
+
 void setup() {
   // Initialize Pins
-  pinMode(STATUS_PIN, OUTPUT);
   pinMode(CLOCK_PIN, OUTPUT);
   pinMode(SI_PIN, INPUT);
   pinMode(SO_PIN, OUTPUT);
-  pinMode(VEL_KNOB_PIN, INPUT);
+  pinMode(ROTARY_CLK, INPUT_PULLUP);
+  pinMode(ROTARY_DT, INPUT);
+  pinMode(ROTARY_SW, INPUT_PULLUP);
+
+  PCICR |= (1 << PCIE0);      // Enable pin change interrupt for PCIE0 (Port B)
+  PCMSK0 |= (1 << PCINT5);    // Enable pin change interrupt for PB5 (PCINT5)
 
   // IMPORTANT! Gameboy Serial In must be HIGH explanation: docs/references/gb_link_serial_in.md
-  //digitalWrite(SO_PIN, HIGH);
+  digitalWrite(SO_PIN, HIGH);
 
 #ifdef DEBUG_MODE
-  Serial.begin(115200);
+  Serial.begin(9600); // to serial monitor
+#else
+  Serial.begin(115200); // to to USB
 #endif
-
   // Initialize MIDI Serial Communication
   Serial1.begin(31250);
   MIDI.begin(MIDI_CHANNEL_OMNI);

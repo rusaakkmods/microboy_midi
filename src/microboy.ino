@@ -12,7 +12,7 @@
 // #define DEBUG_MODE               //- enable debug mode
 // #define USE_MIDI_h               //- use MIDI Library for MIDI Serial Communication (faster but unstable! buffer overflow in faster rate)
 // #define ARDUINOBOY_READER        //- use Arduinoboy version of reader also stable, tweak byteDelay for better stability
- #define NON_BLOCKING_DELAY       //- use non-blocking read for Gameboy Serial Communication
+#define NON_BLOCKING_DELAY //- use non-blocking read for Gameboy Serial Communication
 
 #ifdef USE_MIDI_h
 // MIDI Library for MIDI Serial Communication supposed to be faster but unstable
@@ -46,7 +46,7 @@ HardwareSerial &MIDI = Serial1;
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
-uint32_t byteDelay = 4000; // TODO: should be configurable maybe save in EEPROM
+uint32_t byteDelay = 4000;                    // TODO: should be configurable maybe save in EEPROM
 byte outputChannel[4] = {1, 2, 3, 4};         // default channel 1, 2, 3, 4 //TODO: controlable by rotary encoder and save in EEPROM
 bool ccMode[4] = {true, true, true, true};    // default CC mode 1, 1, 1, 1 //TODO: should be configurable maybe save in EEPROM
 bool ccScaling[4] = {true, true, true, true}; // default scaling 1, 1, 1, 1 //TODO: should be configurable maybe save in EEPROM
@@ -56,7 +56,7 @@ byte ccNumbers[4][7] = {
     {1, 2, 3, 7, 10, 11, 12},
     {1, 2, 3, 7, 10, 11, 12}}; // default CC numbers 1, 2, 3, 7, 10, 11, 12 //TODO: should be configurable maybe save in EEPROM
 
-// enable these features, caution! it is GLITCHY!!
+// enable these features with caution! it is GLITCHY!!
 bool pcEnabled = false;      // TODO: should be configurable maybe save in EEPROM
 bool ccEnabled = false;      // TODO: should be configurable maybe save in EEPROM
 bool realTimeEnabled = true; // TODO: should be configurable maybe save in EEPROM
@@ -67,7 +67,7 @@ byte groove = 6;             // default groove set to 6 (6/6 50% in LSDJ) //TODO
 uint8_t ticks = 0;
 uint64_t lastTickTime = 0;
 float interval = 0.00;
-uint32_t bpm = 0.00;
+uint32_t bpm = 0;
 
 // Gameboy Serial Communication
 uint64_t lastReadGameboy = 0;
@@ -85,6 +85,10 @@ byte switchControlState;
 bool lastControlState = HIGH;
 bool controlPressed = false;
 uint64_t lastPrint = 0;
+
+// debouncing
+bool stopFlag = false;
+uint64_t idleTime = 0;
 
 void clockReset()
 {
@@ -159,9 +163,9 @@ void generateClock()
 {
   for (uint8_t tick = 0; tick < groove; tick++)
   {
-    #ifdef USE_MIDI_h
+#ifdef USE_MIDI_h
     MIDI.sendRealTime(midi::Clock);
-    #endif
+#endif
     sendMIDI({0x0F, 0xF8, 0x00, 0x00});
     delayMicroseconds(interval);
   }
@@ -178,11 +182,37 @@ void handleTick()
       bpm = (round(60000.00 / (interval * PPQN)) / 5) * 5; // round to nearest 5
     }
     lastTickTime = currentTime - byteDelay; // byte offset correction
-    
-    if (clockEnabled) generateClock(); // 1st tick
+
+    if (clockEnabled)
+      generateClock(); // 1st tick
   }
-  if (ticks == PPQN) ticks = 0;
+  if (ticks == PPQN)
+    ticks = 0;
 }
+
+void checkStop() { //avoiding stop glitch
+  if (stopFlag && idleTime > 50) // at least 6 idle time to consider stop
+  {
+      if (realTimeEnabled)
+        {
+    #ifdef USE_MIDI_h
+          MIDI.sendRealTime(midi::Stop);
+    #endif
+
+          sendMIDI({0x0F, 0xFC, 0x00, 0x00});
+        }
+        clockReset();
+        noteStopAll();
+
+    #ifdef DEBUG_MODE
+        Serial.println("Stop!");
+    #endif
+
+    stopFlag = false; 
+    idleTime = 0;
+  }
+}
+
 
 /* Reference from Arduinoboy (https://github.com/trash80/Arduinoboy)
     by Timothy Lamb @trash80
@@ -287,7 +317,8 @@ void routeMessage(byte message, byte value)
   else if (command < 0x08)
   { // 4-7 represent CC message
     track = command - 0x04;
-    if (ccEnabled) sendControlChange(track, value);
+    if (ccEnabled)
+      sendControlChange(track, value);
 #ifdef DEBUG_MODE
     Serial.println("Control Change!");
 #endif
@@ -301,7 +332,8 @@ void routeMessage(byte message, byte value)
     }
     else
     {
-      if (pcEnabled) sendProgramChange(track, value);
+      if (pcEnabled)
+        sendProgramChange(track, value);
 #ifdef DEBUG_MODE
       Serial.println("Program Change!");
 #endif
@@ -323,36 +355,26 @@ void routeRealtime(byte command)
 {
   switch (command)
   {
-  case 0x7D: // send start to USB MIDI
+  case 0x7D: //Start!
     if (realTimeEnabled)
     {
-    #ifdef USE_MIDI_h
+#ifdef USE_MIDI_h
       MIDI.sendRealTime(midi::Start);
-    #endif
+#endif
 
       sendMIDI({0x0F, 0xFA, 0x00, 0x00});
+      stopFlag = false;
     }
     clockReset();
 #ifdef DEBUG_MODE
     Serial.println("Start");
 #endif
     break;
-  case 0x7E: // send stop to USB MIDI //todo avoid stop glitch
-    if (realTimeEnabled)
-    {
-    #ifdef USE_MIDI_h
-      MIDI.sendRealTime(midi::Stop);
-    #endif
-
-      sendMIDI({0x0F, 0xFC, 0x00, 0x00});
-    }
-    clockReset();
-    noteStopAll();
-#ifdef DEBUG_MODE
-    Serial.println("Stop!");
-#endif
+  case 0x7E: //Stop!!
+    if (realTimeEnabled) stopFlag = true;
     break;
-  case 0x7F:
+  case 0x7F: //consider this idle
+    if (stopFlag) idleTime++;
     // microboy byte reading clock!! ignore for now.. very missleading....
     break;
   default:
@@ -372,13 +394,13 @@ void routeRealtime(byte command)
 byte readIncomingByte()
 {
   byte incomingMidiByte;
-  #ifndef NON_BLOCKING_DELAY
+#ifndef NON_BLOCKING_DELAY
   delayMicroseconds(byteDelay);
-  #endif
+#endif
   PORTF &= ~(1 << PF7); // LOW CLOCK_PIN
-  #ifndef NON_BLOCKING_DELAY
+#ifndef NON_BLOCKING_DELAY
   delayMicroseconds(byteDelay);
-  #endif
+#endif
   PORTF |= (1 << PF7); // HIGH CLOCK_PIN
   delayMicroseconds(BIT_DELAY);
   if (((PINF & (1 << PINF5)) ? 1 : 0))
@@ -407,15 +429,15 @@ byte readIncomingByte()
     delayMicroseconds(BIT_DELAY);
 
     receivedByte = (receivedByte << 1) + ((PINF & (1 << PINF5)) ? 1 : 0); // Read a bit, and shift it into the byte
-    //if (i == 0 && receivedByte == 0) return 0x7F;
+    // if (i == 0 && receivedByte == 0) return 0x7F;
 
     PORTF &= ~(1 << PF7); // Set LOW
     delayMicroseconds(BIT_DELAY);
   }
 
-  #ifndef NON_BLOCKING_DELAY
+#ifndef NON_BLOCKING_DELAY
   delayMicroseconds(byteDelay);
-  #endif
+#endif
 
   return receivedByte &= 0x7F; // Set the MSB range value to 0-127
 }
@@ -423,21 +445,24 @@ byte readIncomingByte()
 
 void readGameboy()
 {
-  #ifdef NON_BLOCKING_DELAY
+#ifdef NON_BLOCKING_DELAY
   uint64_t currentTime = micros();
-  if (currentTime - lastReadGameboy < byteDelay) return;
-  #endif
+  if (currentTime - lastReadGameboy < byteDelay)
+    return;
+#endif
 
   byte value = readIncomingByte();
-  
+
   lastReadGameboy = micros();
 
   if (isCommandWaiting)
   {
     routeMessage(commandWaiting, value);
+    idleTime = 0;
+    stopFlag = false;
     isCommandWaiting = false;
 
-    //also read this for hiccups correction
+    // also read this for hiccups correction
     experimentalCorrection = commandWaiting;
 
     commandWaiting = 0x00;
@@ -471,7 +496,7 @@ void readGameboy()
     // EXPERIMENTAL HICCUPS! CORRECTION!! LOL
     if (value == 0)
     {
-      handleTick();
+      //ignore this!!! when its idle always 0
     }
     else if (experimentalCorrection)
     { // use the last command
@@ -546,7 +571,8 @@ void displaySplash()
 void displayMain()
 {
   uint64_t currentTime = millis();
-  if (currentTime - lastPrint < 1000) return;
+  if (currentTime - lastPrint < 1000)
+    return;
 
   display.clearDisplay();
   display.setCursor(0, 0);
@@ -614,4 +640,5 @@ void loop()
 {
   readControl();
   readGameboy();
+  checkStop();
 }

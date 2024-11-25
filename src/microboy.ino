@@ -9,7 +9,7 @@
 #define RUSAAKKMODS "rusaaKKMODS @ 2024"
 
 // build modes options
-// #define DEBUG_MODE               //- enable debug mode
+ #define DEBUG_MODE               //- enable debug mode
 // #define USE_MIDI_h               //- use MIDI Library for MIDI Serial Communication (faster but unstable! buffer overflow in faster rate)
 // #define ARDUINOBOY_READER        //- use Arduinoboy version of reader also stable, tweak byteDelay for better stability
 #define NON_BLOCKING_DELAY //- use non-blocking read for Gameboy Serial Communication
@@ -59,6 +59,7 @@ byte ccNumbers[4][7] = {
 // enable these features with caution! it is GLITCHY!!
 bool pcEnabled = false;      // TODO: should be configurable maybe save in EEPROM
 bool ccEnabled = false;      // TODO: should be configurable maybe save in EEPROM
+bool experimentalCorrectionEnabled = true; // TODO: should be configurable maybe save in EEPROM
 bool realTimeEnabled = true; // TODO: should be configurable maybe save in EEPROM
 bool clockEnabled = true;    // TODO: should be configurable maybe save in EEPROM
 byte groove = 6;             // default groove set to 6 (6/6 50% in LSDJ) //TODO: should be configurable maybe save in EEPROM
@@ -73,7 +74,7 @@ uint32_t bpm = 0;
 uint64_t lastReadGameboy = 0;
 bool isCommandWaiting = false;
 byte commandWaiting = 0x00;
-byte experimentalCorrection = 0x00;
+byte correctionByte = 0x00;
 
 // track 0-PU1, 1-PU2, 2-WAV, 3-NOI
 byte lastNote[4] = {0, 0, 0, 0};
@@ -317,8 +318,13 @@ void routeMessage(byte message, byte value)
   else if (command < 0x08)
   { // 4-7 represent CC message
     track = command - 0x04;
-    if (ccEnabled)
+    if (ccEnabled) {
       sendControlChange(track, value);
+    }
+    else
+    {
+      if (experimentalCorrectionEnabled) experimentalCorrection(value);
+    }
 #ifdef DEBUG_MODE
     Serial.println("Control Change!");
 #endif
@@ -332,8 +338,13 @@ void routeMessage(byte message, byte value)
     }
     else
     {
-      if (pcEnabled)
+      if (pcEnabled) {
         sendProgramChange(track, value);
+      }
+      else
+      {
+        if (experimentalCorrectionEnabled) experimentalCorrection(value);
+      }
 #ifdef DEBUG_MODE
       Serial.println("Program Change!");
 #endif
@@ -443,6 +454,24 @@ byte readIncomingByte()
 }
 #endif
 
+//experimental hiccups correction
+void experimentalCorrection(byte value)
+{
+  #ifdef DEBUG_MODE
+    Serial.print("Hiccups!!: ");
+    Serial.println(value);
+#endif
+    // EXPERIMENTAL HICCUPS! CORRECTION!! LOL
+    if (value == 0)
+    {
+      //ignore this!!! when its idle always 0
+    }
+    else
+    { // use the last track
+      routeMessage(lastTrack + 0x70, value);
+    }
+}
+
 void readGameboy()
 {
 #ifdef NON_BLOCKING_DELAY
@@ -461,10 +490,6 @@ void readGameboy()
     idleTime = 0;
     stopFlag = false;
     isCommandWaiting = false;
-
-    // also read this for hiccups correction
-    experimentalCorrection = commandWaiting;
-
     commandWaiting = 0x00;
   }
   else if (value >= 0x7D)
@@ -478,35 +503,8 @@ void readGameboy()
   }
   else
   { // 0 - 111 Hiccups!!! not supposed to happened!!
-#ifdef DEBUG_MODE
-    if (value == 0)
-    {
-      Serial.print("Hiccups! ticks??:");
-    }
-    else if (value > 0x0F)
-    {
-      Serial.print("Hiccups! Note:");
-    }
-    else
-    {
-      Serial.print("Hiccups! Command:");
-    }
-    Serial.println(value);
-#endif
-    // EXPERIMENTAL HICCUPS! CORRECTION!! LOL
-    if (value == 0)
-    {
-      //ignore this!!! when its idle always 0
-    }
-    else if (experimentalCorrection)
-    { // use the last command
-      routeMessage(experimentalCorrection, value);
-      experimentalCorrection = 0x00;
-    }
-    else
-    { // use the last track
-      routeMessage(lastTrack + 0x70, value);
-    }
+    if (experimentalCorrectionEnabled) experimentalCorrection(value);
+    //else ignore this!! beat skipp!
   }
 }
 

@@ -59,8 +59,9 @@ byte ccNumbers[4][7] = {
 // enable these features, caution! it is GLITCHY!!
 bool pcEnabled = false;      // TODO: should be configurable maybe save in EEPROM
 bool ccEnabled = false;      // TODO: should be configurable maybe save in EEPROM
-bool realTimeEnabled = false; // TODO: should be configurable maybe save in EEPROM
-bool clockEnabled = false;    // TODO: should be configurable maybe save in EEPROM
+bool realTimeEnabled = true; // TODO: should be configurable maybe save in EEPROM
+bool clockEnabled = true;    // TODO: should be configurable maybe save in EEPROM
+byte groove = 6;             // default groove set to 6 (6/6 50% in LSDJ) //TODO: should be configurable maybe save in EEPROM
 
 // Clocking
 uint8_t ticks = 0;
@@ -154,30 +155,33 @@ void sendNote(byte track, byte note)
   }
 }
 
-void calculateBPM()
+void generateClock()
 {
-  if (ticks++ == 0)
+  for (uint8_t tick = 0; tick < groove; tick++)
+  {
+    #ifdef USE_MIDI_h
+    MIDI.sendRealTime(midi::Clock);
+    #endif
+    sendMIDI({0x0F, 0xF8, 0x00, 0x00});
+    delayMicroseconds(interval);
+  }
+}
+
+void handleTick()
+{
+  if (ticks++ % groove == 0)
   {
     uint64_t currentTime = micros();
     if (lastTickTime > 0) // skip on first tap
     {
-      interval = round((currentTime - lastTickTime) / (PPQN * 1000));
+      interval = (currentTime - lastTickTime) / (groove * 1000);
       bpm = (round(60000.00 / (interval * PPQN)) / 5) * 5; // round to nearest 5
     }
     lastTickTime = currentTime - byteDelay; // byte offset correction
+    
+    if (clockEnabled) generateClock(); // 1st tick
   }
-  if (ticks == 24) ticks = 0;
-}
-
-void sendTick()
-{
-  calculateBPM();
-  if (!clockEnabled) return;
-
-#ifdef USE_MIDI_h
-  MIDI.sendRealTime(midi::Clock);
-#endif
-  sendMIDI({0x0F, 0xF8, 0x00, 0x00});
+  if (ticks == PPQN) ticks = 0;
 }
 
 /* Reference from Arduinoboy (https://github.com/trash80/Arduinoboy)
@@ -293,7 +297,7 @@ void routeMessage(byte message, byte value)
     track = command - 0x08;
     if (value == 0x7F) // use the GUNSHOT!!! y-FF command!
     {
-      sendTick();
+      handleTick();
     }
     else
     {
@@ -467,7 +471,7 @@ void readGameboy()
     // EXPERIMENTAL HICCUPS! CORRECTION!! LOL
     if (value == 0)
     {
-      sendTick();
+      handleTick();
     }
     else if (experimentalCorrection)
     { // use the last command

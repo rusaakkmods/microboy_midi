@@ -9,7 +9,7 @@
 #define VERSION "v0.0.1"
 #define YEAR "2024"
 
-#define EEPROM_MAGIC_NUMBER 0x00FF00FF //update this when EEPROM structure changed
+#define EEPROM_MAGIC_NUMBER 0x00FF00FF // update this when EEPROM structure changed
 #define EEPROM_MAGIC_NUMBER_ADDRESS 0
 #define EEPROM_CONFIG_ADDRESS sizeof(uint32_t)
 
@@ -24,10 +24,10 @@
 // - rename USB_PRODUCT to microboy
 
 // build modes options
-// #define DEBUG_MODE               //- enable debug mode
-// #define USE_MIDI_h               //- use MIDI Library for MIDI Serial Communication (faster but unstable! buffer overflow in faster rate)
-// #define ARDUINOBOY_READER        //- use Arduinoboy version of reader also stable, tweak byteDelay for better stability
-#define NON_BLOCKING_DELAY //- use non-blocking read for Gameboy Serial Communication
+#define DEBUG_MODE         //- enable debug mode
+                           // #define USE_MIDI_h               //- use MIDI Library for MIDI Serial Communication (faster but unstable! buffer overflow in faster rate)
+                           // #define ARDUINOBOY_READER        //- use Arduinoboy version of reader also stable, tweak byteDelay for better stability
+#define NON_BLOCKING_DELAY //- use non-blocking read for Gameboy Serial Communication (more stable when enable clock)
 
 #ifdef USE_MIDI_h
 // MIDI Library for MIDI Serial Communication supposed to be faster but unstable
@@ -61,76 +61,84 @@ HardwareSerial &MIDI = Serial1;
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
-struct Config {
-    uint32_t byteDelay;
-    byte outputChannel[4];
-    bool ccMode[4];
-    bool ccScaling[4];
-    byte ccNumbers[4][7];
-    bool pcEnabled;
-    bool ccEnabled;
-    bool experimentalCorrectionEnabled;
-    bool realTimeEnabled;
-    bool clockEnabled;
-    byte groove;
-    uint32_t version;
+struct Config
+{
+  uint32_t byteDelay;
+  byte outputChannel[4];
+  bool ccMode[4];
+  bool ccScaling[4];
+  byte ccNumbers[4][7];
+  bool pcEnabled;
+  bool ccEnabled;
+  bool experimentalCorrectionEnabled;
+  bool realTimeEnabled;
+  bool clockEnabled;
+  byte groove;
+  uint32_t version;
 };
 
 Config config;
-void initializeConfig() { // default configuration
-    config.byteDelay = 4000;
-    config.outputChannel[0] = 1;
-    config.outputChannel[1] = 2;
-    config.outputChannel[2] = 3;
-    config.outputChannel[3] = 4;
+void initializeConfig()
+{                          // default configuration
+  config.byteDelay = 4000; // at least 1000-5000 for stable reading
+  config.outputChannel[0] = 1;
+  config.outputChannel[1] = 2;
+  config.outputChannel[2] = 3;
+  config.outputChannel[3] = 4;
 
-    config.ccMode[0] = true;
-    config.ccMode[1] = true;
-    config.ccMode[2] = true;
-    config.ccMode[3] = true;
+  config.ccMode[0] = true;
+  config.ccMode[1] = true;
+  config.ccMode[2] = true;
+  config.ccMode[3] = true;
 
-    config.ccScaling[0] = true;
-    config.ccScaling[1] = true;
-    config.ccScaling[2] = true;
-    config.ccScaling[3] = true;
+  config.ccScaling[0] = true;
+  config.ccScaling[1] = true;
+  config.ccScaling[2] = true;
+  config.ccScaling[3] = true;
 
-    byte ccNumbers[4][7] = {
+  byte ccNumbers[4][7] = {
       {1, 2, 3, 7, 10, 11, 12},
       {1, 2, 3, 7, 10, 11, 12},
       {1, 2, 3, 7, 10, 11, 12},
-      {1, 2, 3, 7, 10, 11, 12}
-    };
+      {1, 2, 3, 7, 10, 11, 12}};
 
-    for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 7; j++) {
-            config.ccNumbers[i][j] = ccNumbers[i][j];
-        }
+  for (int i = 0; i < 4; i++)
+  {
+    for (int j = 0; j < 7; j++)
+    {
+      config.ccNumbers[i][j] = ccNumbers[i][j];
     }
+  }
 
-    config.pcEnabled = false;
-    config.ccEnabled = false;
-    config.experimentalCorrectionEnabled = true;
-    config.realTimeEnabled = true;
-    config.clockEnabled = true;
-    config.groove = 6;
-    config.version = EEPROM_MAGIC_NUMBER;
+  config.pcEnabled = false;
+  config.ccEnabled = false;
+  config.experimentalCorrectionEnabled = true;
+  config.realTimeEnabled = true;
+  config.clockEnabled = true;
+  config.groove = 6;
+  config.version = EEPROM_MAGIC_NUMBER;
 }
 
-void saveConfigToEEPROM() {
-    EEPROM.put(EEPROM_MAGIC_NUMBER_ADDRESS, EEPROM_MAGIC_NUMBER);
-    EEPROM.put(EEPROM_CONFIG_ADDRESS, config);
+void saveConfigToEEPROM()
+{
+  EEPROM.put(EEPROM_MAGIC_NUMBER_ADDRESS, EEPROM_MAGIC_NUMBER);
+  EEPROM.put(EEPROM_CONFIG_ADDRESS, config);
 }
 
-void loadConfigFromEEPROM() {
-    uint32_t magicNumber;
-    EEPROM.get(EEPROM_MAGIC_NUMBER_ADDRESS, magicNumber);
+void loadConfigFromEEPROM()
+{
+  uint32_t magicNumber;
+  EEPROM.get(EEPROM_MAGIC_NUMBER_ADDRESS, magicNumber);
 
-    if (magicNumber == EEPROM_MAGIC_NUMBER) {
-        EEPROM.get(EEPROM_CONFIG_ADDRESS, config);
-    } else {
-        initializeConfig();
-        saveConfigToEEPROM();
-    }
+  if (magicNumber == EEPROM_MAGIC_NUMBER)
+  {
+    EEPROM.get(EEPROM_CONFIG_ADDRESS, config);
+  }
+  else
+  {
+    initializeConfig();
+    saveConfigToEEPROM();
+  }
 }
 
 // Clocking
@@ -158,14 +166,66 @@ uint64_t lastPrint = 0;
 
 // debouncing
 bool stopFlag = false;
+bool startFlag = false;
 uint64_t idleTime = 0;
 
-void clockReset()
+void resetClock()
 {
   ticks = 0;
   lastTickTime = 0;
   interval = 0.00;
   bpm = 0;
+}
+
+void flushSerial()
+{
+  MidiUSB.flush();
+
+#ifdef USE_MIDI_h
+  MIDI.read();
+#else
+  Serial1.flush(); //??? not sure if this is necessary
+#endif
+}
+
+void displaySplash()
+{
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.println(_USB_PRODUCT);
+  display.setCursor(0, 10);
+  display.println(VERSION);
+  display.setCursor(0, 20);
+  display.print(_USB_MANUFACTURER);
+  display.display();
+}
+
+void displayMain()
+{
+  uint64_t currentTime = millis();
+  if (currentTime - lastPrint < 1000)
+    return;
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.print("PU1 [");
+  display.print(String(config.outputChannel[0] < 10 ? "0" : "") + String(config.outputChannel[0]));
+  display.print("] | PU2 [");
+  display.print(String(config.outputChannel[1] < 10 ? "0" : "") + String(config.outputChannel[1]));
+  display.println("]");
+  display.setCursor(0, 10);
+  display.print("WAV [");
+  display.print(String(config.outputChannel[2] < 10 ? "0" : "") + String(config.outputChannel[2]));
+  display.print("] | NOI [");
+  display.print(String(config.outputChannel[3] < 10 ? "0" : "") + String(config.outputChannel[3]));
+  display.println("]");
+  display.setCursor(0, 20);
+  display.print("VEL:");
+  display.print(velocity);
+  display.print(" BPM:");
+  display.print(bpm);
+  display.display();
+  lastPrint = currentTime;
 }
 
 void sendMIDI(midiEventPacket_t message)
@@ -241,6 +301,7 @@ void generateClock()
   }
 }
 
+// experimental MIDI Clock Generator
 void handleTick()
 {
   if (ticks++ % config.groove == 0)
@@ -248,41 +309,48 @@ void handleTick()
     uint64_t currentTime = micros();
     if (lastTickTime > 0) // skip on first tap
     {
-      interval = ceil(currentTime - lastTickTime) / (config.groove * 1000);
-      bpm = (round(60000.00 / (interval * PPQN)) / 5) * 5; // round to nearest 5
+      interval = (currentTime - lastTickTime) / (config.groove * 1000);
+      bpm = round((60000.00 / (interval * PPQN)) / 5) * 5;
+      // TODO:
+      // its near enough but need a little bit tweaking on byte offset correction
+      // issue when multiple channels active at once
+      // disrupted when there busy with midi activities
     }
-    lastTickTime = currentTime - config.byteDelay; // byte offset correction
+    // TODO: make it dynamic by calculating tick delayed by midi activities
+    lastTickTime = currentTime - (config.byteDelay + (BIT_DELAY * 3)); // byte offset correction
 
     if (config.clockEnabled)
       generateClock(); // 1st tick
   }
+
   if (ticks == PPQN)
     ticks = 0;
 }
 
-void checkStop() { //avoiding stop glitch
-  if (stopFlag && idleTime > 50) // at least 6 idle time to consider stop
+void handlerStop()
+{                                 // avoiding the "stop" glitch
+  if (stopFlag && idleTime > 100) // at least 300 idle time to consider stop
   {
-      if (config.realTimeEnabled)
-        {
-    #ifdef USE_MIDI_h
-          MIDI.sendRealTime(midi::Stop);
-    #endif
+    if (config.realTimeEnabled)
+    {
+#ifdef USE_MIDI_h
+      MIDI.sendRealTime(midi::Stop);
+#endif
 
-          sendMIDI({0x0F, 0xFC, 0x00, 0x00});
-        }
-        clockReset();
-        noteStopAll();
+      sendMIDI({0x0F, 0xFC, 0x00, 0x00});
+    }
+    resetClock();
+    noteStopAll();
 
-    #ifdef DEBUG_MODE
-        Serial.println("Stop!");
-    #endif
+#ifdef DEBUG_MODE
+    Serial.println("Stop!");
+#endif
 
-    stopFlag = false; 
+    startFlag = false;
+    stopFlag = false;
     idleTime = 0;
   }
 }
-
 
 /* Reference from Arduinoboy (https://github.com/trash80/Arduinoboy)
     by Timothy Lamb @trash80
@@ -320,13 +388,13 @@ void sendControlChange(byte track, byte value)
     {
       // CC Mode 1 with scaling
       ccNumber = config.ccNumbers[track][(value & 0xF0) >> 4]; // High nibble
-      ccValue = map(value & 0x0F, 0, 15, 0, 127);       // Low nibble
+      ccValue = map(value & 0x0F, 0, 15, 0, 127);              // Low nibble
     }
     else
     {
       // CC Mode 1 without scaling
       ccNumber = config.ccNumbers[track][(value & 0xF0) >> 4]; // High nibble
-      ccValue = value & 0x0F;                           // Low nibble
+      ccValue = value & 0x0F;                                  // Low nibble
     }
   }
   else
@@ -334,14 +402,14 @@ void sendControlChange(byte track, byte value)
     if (config.ccScaling[track])
     {
       // CC Mode 0 with scaling
-      ccNumber = config.ccNumbers[track][0];       // Use the first CC number for Mode 0
-      ccValue = map(value, 0, 112, 0, 127); // Scale the value
+      ccNumber = config.ccNumbers[track][0]; // Use the first CC number for Mode 0
+      ccValue = map(value, 0, 112, 0, 127);  // Scale the value
     }
     else
     {
       // CC Mode 0 without scaling
       ccNumber = config.ccNumbers[track][0]; // Use the first CC number for Mode 0
-      ccValue = value;                // Direct value
+      ccValue = value;                       // Direct value
     }
   }
 
@@ -387,12 +455,14 @@ void routeMessage(byte message, byte value)
   else if (command < 0x08)
   { // 4-7 represent CC message
     track = command - 0x04;
-    if (config.ccEnabled) {
+    if (config.ccEnabled)
+    {
       sendControlChange(track, value);
     }
     else
     {
-      if (config.experimentalCorrectionEnabled) experimentalCorrection(value);
+      if (config.experimentalCorrectionEnabled)
+        experimentalCorrection(value);
     }
 #ifdef DEBUG_MODE
     Serial.println("Control Change!");
@@ -407,12 +477,14 @@ void routeMessage(byte message, byte value)
     }
     else
     {
-      if (config.pcEnabled) {
+      if (config.pcEnabled)
+      {
         sendProgramChange(track, value);
       }
       else
       {
-        if (config.experimentalCorrectionEnabled) experimentalCorrection(value);
+        if (config.experimentalCorrectionEnabled)
+          experimentalCorrection(value);
       }
 #ifdef DEBUG_MODE
       Serial.println("Program Change!");
@@ -435,26 +507,38 @@ void routeRealtime(byte command)
 {
   switch (command)
   {
-  case 0x7D: //Start!
-    if (config.realTimeEnabled)
+  case 0x7D: // Start!
+    if (config.realTimeEnabled && !startFlag)
     {
+      resetClock();
+
+      sendMIDI({0x0F, 0xFA, 0x00, 0x00});
+
 #ifdef USE_MIDI_h
       MIDI.sendRealTime(midi::Start);
 #endif
 
-      sendMIDI({0x0F, 0xFA, 0x00, 0x00});
+      startFlag = true;
       stopFlag = false;
-    }
-    clockReset();
+
 #ifdef DEBUG_MODE
-    Serial.println("Start");
+      Serial.println("Start");
+#endif
+    }
+#ifdef DEBUG_MODE
+    else if (startFlag)
+    {
+      Serial.println("Start Hiccups!");
+    }
 #endif
     break;
-  case 0x7E: //Stop!!
-    if (config.realTimeEnabled) stopFlag = true;
+  case 0x7E: // Stop!!
+    if (config.realTimeEnabled && !stopFlag)
+      stopFlag = true; // debounce stop in case of hiccups
     break;
-  case 0x7F: //consider this idle
-    if (stopFlag) idleTime++;
+  case 0x7F: // consider this idle
+    if (stopFlag)
+      idleTime++;
     // microboy byte reading clock!! ignore for now.. very missleading....
     break;
   default:
@@ -505,10 +589,10 @@ byte readIncomingByte()
   PORTF |= (1 << PF6); // making sure Gameboy Serial In is HIGH! explanation: docs/references/gb_link_serial_in.md
   for (uint8_t i = 0; i < 8; i++)
   {
-    PORTF &= ~(1 << PF7); // Set LOW to ensure
-    delayMicroseconds(BIT_DELAY);
-    PORTF |= (1 << PF7); // Set HIGH
-    delayMicroseconds(BIT_DELAY);
+    // PORTF &= ~(1 << PF7); // Set LOW to ensure
+    // delayMicroseconds(BIT_DELAY);
+    PORTF |= (1 << PF7);          // Set HIGH
+    delayMicroseconds(BIT_DELAY); // Wait for the signal to stabilize
 
     receivedByte = (receivedByte << 1) + ((PINF & (1 << PINF5)) ? 1 : 0); // Read a bit, and shift it into the byte
 
@@ -524,22 +608,22 @@ byte readIncomingByte()
 }
 #endif
 
-//experimental hiccups correction
+// experimental hiccups correction
 void experimentalCorrection(byte value)
 {
-  #ifdef DEBUG_MODE
-    Serial.print("Hiccups!!: ");
-    Serial.println(value);
+#ifdef DEBUG_MODE
+  Serial.print("Hiccups!!: ");
+  Serial.println(value);
 #endif
-    // EXPERIMENTAL HICCUPS! CORRECTION!! LOL
-    if (value == 0)
-    {
-      //ignore this!!! when its idle always 0
-    }
-    else
-    { // use the last track
-      routeMessage(lastTrack + 0x70, value);
-    }
+  // EXPERIMENTAL HICCUPS! CORRECTION!! LOL
+  if (value == 0)
+  {
+    // ignore this!!! when its idle always 0
+  }
+  else
+  { // use the last track
+    routeMessage(lastTrack + 0x70, value);
+  }
 }
 
 void readGameboy()
@@ -573,8 +657,9 @@ void readGameboy()
   }
   else
   { // 0 - 111 Hiccups!!! not supposed to happened!!
-    if (config.experimentalCorrectionEnabled) experimentalCorrection(value);
-    //else ignore this!! beat skipp!
+    if (config.experimentalCorrectionEnabled)
+      experimentalCorrection(value);
+    // else ignore this!! beat skipp!
   }
 }
 
@@ -592,7 +677,6 @@ ISR(PCINT0_vect)
       velocity--;
     }
     velocity = constrain(velocity, 0, 127);
-    
   }
   lastControlState = pinState;
 }
@@ -614,73 +698,22 @@ void readControl()
   displayMain();
 }
 
-void flushSerial()
-{
-  MidiUSB.flush();
-
-#ifdef USE_MIDI_h
-  MIDI.read();
-#else
-  Serial1.flush(); //??? not sure if this is necessary
-#endif
-}
-
-void displaySplash()
-{
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.println(_USB_PRODUCT);
-  display.setCursor(0, 10);
-  display.println(VERSION);
-  display.setCursor(0, 20);
-  display.print(_USB_MANUFACTURER);
-  display.display();
-}
-
-void displayMain()
-{
-  uint64_t currentTime = millis();
-  if (currentTime - lastPrint < 1000)
-    return;
-
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.print("PU1 [");
-  display.print(String(config.outputChannel[0] < 10 ? "0" : "") + String(config.outputChannel[0]));
-  display.print("] | PU2 [");
-  display.print(String(config.outputChannel[1] < 10 ? "0" : "") + String(config.outputChannel[1]));
-  display.println("]");
-  display.setCursor(0, 10);
-  display.print("WAV [");
-  display.print(String(config.outputChannel[2] < 10 ? "0" : "") + String(config.outputChannel[2]));
-  display.print("] | NOI [");
-  display.print(String(config.outputChannel[3] < 10 ? "0" : "") + String(config.outputChannel[3]));
-  display.println("]");
-  display.setCursor(0, 20);
-  display.print("VEL:");
-  display.print(velocity);
-  display.print(" BPM:");
-  display.print(bpm);
-  display.display();
-  lastPrint = currentTime;
-}
-
 void stateHandler()
 {
+  handlerStop();
   readControl();
-  checkStop();
 }
 
 void setup()
 {
-  initializeConfig(); //use this instead to debug
+  initializeConfig(); // use this instead to debug
 
   // loadConfigFromEEPROM(); use EEPROM only to store configuration
-  // EEPROM have limited number of write cycles, typically around 100,000 to 1,000,000 cycles per cell. 
-  
+  // EEPROM have limited number of write cycles, typically around 100,000 to 1,000,000 cycles per cell.
+
   // Initialize Pins
   pinMode(CLOCK_PIN, OUTPUT);
-  pinMode(SI_PIN, INPUT_PULLUP);
+  pinMode(SI_PIN, INPUT);
   pinMode(SO_PIN, OUTPUT);
   pinMode(ROTARY_CLK, INPUT_PULLUP);
   pinMode(ROTARY_DT, INPUT);
@@ -710,7 +743,7 @@ void setup()
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
 
-  clockReset();
+  resetClock();
   flushSerial();
 
   displaySplash();
@@ -718,6 +751,6 @@ void setup()
 
 void loop()
 {
-  stateHandler();  
+  stateHandler();
   readGameboy();
 }

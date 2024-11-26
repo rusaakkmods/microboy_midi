@@ -4,16 +4,27 @@
 #include <Adafruit_SSD1306.h>
 #include <EEPROM.h>
 
-#define PRODUCT_NAME "MicroBOY MIDI"
+#define _USB_PRODUCT "MicroBOY MIDI"
+#define _USB_MANUFACTURER "rusaaKKMODS"
 #define VERSION "v0.0.1"
-#define RUSAAKKMODS "rusaaKKMODS @ 2024"
+#define YEAR "2024"
 
 #define EEPROM_MAGIC_NUMBER 0x00FF00FF //update this when EEPROM structure changed
 #define EEPROM_MAGIC_NUMBER_ADDRESS 0
 #define EEPROM_CONFIG_ADDRESS sizeof(uint32_t)
 
+// TODO LIST:
+// - Implement OLED Menu for Configurations
+// - Exclude unused CC message - this could minimize glitches
+// - Intead of Y-FF use Unused CC message for clocking
+// - add reset function
+// - add track leds
+// - add track mute/unmute
+// - add track solo
+// - rename USB_PRODUCT to microboy
+
 // build modes options
- #define DEBUG_MODE               //- enable debug mode
+// #define DEBUG_MODE               //- enable debug mode
 // #define USE_MIDI_h               //- use MIDI Library for MIDI Serial Communication (faster but unstable! buffer overflow in faster rate)
 // #define ARDUINOBOY_READER        //- use Arduinoboy version of reader also stable, tweak byteDelay for better stability
 #define NON_BLOCKING_DELAY //- use non-blocking read for Gameboy Serial Communication
@@ -237,7 +248,7 @@ void handleTick()
     uint64_t currentTime = micros();
     if (lastTickTime > 0) // skip on first tap
     {
-      interval = (currentTime - lastTickTime) / (config.groove * 1000);
+      interval = ceil(currentTime - lastTickTime) / (config.groove * 1000);
       bpm = (round(60000.00 / (interval * PPQN)) / 5) * 5; // round to nearest 5
     }
     lastTickTime = currentTime - config.byteDelay; // byte offset correction
@@ -494,11 +505,12 @@ byte readIncomingByte()
   PORTF |= (1 << PF6); // making sure Gameboy Serial In is HIGH! explanation: docs/references/gb_link_serial_in.md
   for (uint8_t i = 0; i < 8; i++)
   {
+    PORTF &= ~(1 << PF7); // Set LOW to ensure
+    delayMicroseconds(BIT_DELAY);
     PORTF |= (1 << PF7); // Set HIGH
     delayMicroseconds(BIT_DELAY);
 
     receivedByte = (receivedByte << 1) + ((PINF & (1 << PINF5)) ? 1 : 0); // Read a bit, and shift it into the byte
-    // if (i == 0 && receivedByte == 0) return 0x7F;
 
     PORTF &= ~(1 << PF7); // Set LOW
     delayMicroseconds(BIT_DELAY);
@@ -617,11 +629,11 @@ void displaySplash()
 {
   display.clearDisplay();
   display.setCursor(0, 0);
-  display.println(PRODUCT_NAME);
+  display.println(_USB_PRODUCT);
   display.setCursor(0, 10);
   display.println(VERSION);
   display.setCursor(0, 20);
-  display.print(RUSAAKKMODS);
+  display.print(_USB_MANUFACTURER);
   display.display();
 }
 
@@ -653,6 +665,12 @@ void displayMain()
   lastPrint = currentTime;
 }
 
+void stateHandler()
+{
+  readControl();
+  checkStop();
+}
+
 void setup()
 {
   initializeConfig(); //use this instead to debug
@@ -662,7 +680,7 @@ void setup()
   
   // Initialize Pins
   pinMode(CLOCK_PIN, OUTPUT);
-  pinMode(SI_PIN, INPUT);
+  pinMode(SI_PIN, INPUT_PULLUP);
   pinMode(SO_PIN, OUTPUT);
   pinMode(ROTARY_CLK, INPUT_PULLUP);
   pinMode(ROTARY_DT, INPUT);
@@ -700,7 +718,6 @@ void setup()
 
 void loop()
 {
-  readControl();
+  stateHandler();  
   readGameboy();
-  checkStop();
 }

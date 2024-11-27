@@ -1,0 +1,72 @@
+
+#include "config.h"
+#include <EEPROM.h>
+
+#define EEPROM_CHECK_NUMBER 0x00000000 // random number to update this when EEPROM structure changed
+#define EEPROM_CHECK_NUMBER_ADDRESS 0
+#define EEPROM_CONFIG_ADDRESS sizeof(uint32_t)
+
+Config config;
+
+void config_default()
+{
+    config.byteDelay = 6000; // at least 1000-5000 for stable reading
+    config.outputChannel[0] = 1;
+    config.outputChannel[1] = 2;
+    config.outputChannel[2] = 3;
+    config.outputChannel[3] = 4;
+
+    config.ccMode[0] = true;
+    config.ccMode[1] = true;
+    config.ccMode[2] = true;
+    config.ccMode[3] = true;
+
+    config.ccScaling[0] = true;
+    config.ccScaling[1] = true;
+    config.ccScaling[2] = true;
+    config.ccScaling[3] = true;
+
+    byte ccNumbersInit[4][7] = {
+        {1, 2, 3, 7, 10, 11, 12},
+        {1, 2, 3, 7, 10, 11, 12},
+        {1, 2, 3, 7, 10, 11, 12},
+        {1, 2, 3, 7, 10, 11, 12}};
+
+    for (int i = 0; i < 4; i++)
+    {
+        for (int j = 0; j < 7; j++)
+        {
+            config.ccNumbers[i][j] = ccNumbersInit[i][j];
+        }
+    }
+
+    config.pcEnabled = false;
+    config.ccEnabled = false;
+    config.experimentalCorrectionEnabled = true;
+    config.realTimeEnabled = true;
+    config.clockEnabled = true;
+    config.groove = 6;
+    config.version = EEPROM_CHECK_NUMBER;
+}
+
+void config_save()
+{
+    EEPROM.put(EEPROM_CHECK_NUMBER_ADDRESS, EEPROM_CHECK_NUMBER);
+    EEPROM.put(EEPROM_CONFIG_ADDRESS, config);
+}
+
+void config_init()
+{
+    uint32_t magicNumber;
+    EEPROM.get(EEPROM_CHECK_NUMBER_ADDRESS, magicNumber);
+
+    if (magicNumber == EEPROM_CHECK_NUMBER)
+    {
+        EEPROM.get(EEPROM_CONFIG_ADDRESS, config);
+    }
+    else
+    {
+        config_default();
+        config_save();
+    }
+}

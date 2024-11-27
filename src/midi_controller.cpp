@@ -34,10 +34,12 @@ void midi_send(midiEventPacket_t message)
 {
     MidiUSB.sendMIDI(message);
 
-#ifndef USE_MIDI_h
-    Serial1.write(message.byte1);
-    Serial1.write(message.byte2);
-    Serial1.write(message.byte3);
+#ifndef USE_MIDI_h //NOT USE MIDI.h
+    if (Serial1.available()) { 
+        Serial1.write(message.byte1);
+        Serial1.write(message.byte2);
+        Serial1.write(message.byte3);
+    }
 #endif
 
     midi_flush();

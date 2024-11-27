@@ -13,6 +13,7 @@
 // - add track mute/unmute
 // - add track solo
 // - rename USB_PRODUCT to microboy
+// - todo check if usb not connected to midi device using Serial.dtr() 
 
 void setup()
 {

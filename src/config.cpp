@@ -2,7 +2,7 @@
 #include "config.h"
 #include <EEPROM.h>
 
-#define EEPROM_CHECK_NUMBER 0x00000000 // random number to update this when EEPROM structure changed
+#define EEPROM_CHECK_NUMBER 0x00000001 // random number to update this when EEPROM structure changed
 #define EEPROM_CHECK_NUMBER_ADDRESS 0
 #define EEPROM_CONFIG_ADDRESS sizeof(uint32_t)
 
@@ -10,7 +10,7 @@ Config config;
 
 void config_default()
 {
-    config.byteDelay = 4800; // at least 1000-5000 for stable reading
+    config.byteDelay = 4000; // at least 1000-5000 for stable reading
     config.outputChannel[0] = 1;
     config.outputChannel[1] = 2;
     config.outputChannel[2] = 3;

@@ -10,6 +10,7 @@ struct MIDIController
 extern MIDIController midiController;
 
 void midi_init();
+void midi_flush();
 void midi_handleStop();
 void midi_realtime(byte command);
 void midi_message(byte message, byte value);

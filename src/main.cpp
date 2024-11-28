@@ -3,6 +3,7 @@
 #include "clock.h"
 #include "reader.h"
 #include "control.h"
+#include <avr/wdt.h>
 
 // TODO LIST:
 // - Implement OLED Menu for Configurations
@@ -15,8 +16,10 @@
 // - rename USB_PRODUCT to microboy
 // - todo check if usb not connected to midi device using Serial.dtr() 
 
+
 void setup()
 {
+  wdt_enable(WDTO_1S); // Set watchdog to 2 seconds
   //config_init();
   config_default();
   reader_init();
@@ -27,6 +30,8 @@ void setup()
 
 void loop()
 {
+  wdt_reset(); // Reset watchdog
+
   midi_handleStop(); // check stop flag
   control_read();
   reader_read();

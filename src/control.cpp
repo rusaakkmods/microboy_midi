@@ -28,7 +28,9 @@ void control_read()
   switchControlState = digitalRead(ROTARY_SW);
   if (switchControlState == LOW && !controlPressed)
   {
-    midiController.velocity = 0;
+    //midiController.velocity = 0;
+    asm volatile ("jmp 0");
+    
     controlPressed = true;
   }
 

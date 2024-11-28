@@ -2,8 +2,11 @@
 #include "config.h"
 
 #define PPQN 24 // Pulses Per Quarter Note
-#define MINIMUM_INTERVAL 8333.3 //microseconds
-#define MAXIMUM_INTERVAL 62500 //microseconds
+#define MINIMUM_INTERVAL 13//8.3 //microseconds
+#define MAXIMUM_INTERVAL 62.5 //microseconds
+
+#define MINIMUM_BPM 40
+#define MAXIMUM_BPM 300
 
 typedef void (*TickCallback)();
 

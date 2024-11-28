@@ -35,11 +35,9 @@ void midi_send(midiEventPacket_t message)
     MidiUSB.sendMIDI(message);
 
 #ifndef USE_MIDI_h //NOT USE MIDI.h
-    if (Serial1.available()) { 
-        Serial1.write(message.byte1);
-        Serial1.write(message.byte2);
-        Serial1.write(message.byte3);
-    }
+    Serial1.write(message.byte1);
+    Serial1.write(message.byte2);
+    Serial1.write(message.byte3);
 #endif
 
     midi_flush();
@@ -361,11 +359,8 @@ void midi_init()
 
     midiController.velocity = 100;
     
-
 #ifdef DEBUG_MODE
     Serial.begin(9600); // to serial monitor
-#else
-    Serial.begin(115200); // to to USB
 #endif
     // Initialize MIDI Serial Communication
     Serial1.begin(31250);

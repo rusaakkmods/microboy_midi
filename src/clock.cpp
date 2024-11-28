@@ -14,8 +14,9 @@ void clock_reset()
 {
     ticks = 0;
     lastTickTime = 0;
-    clock.interval = MINIMUM_INTERVAL;
+    clock.interval = 0.0;
     clock.bpm = 0;
+    clock.correction = 0;
 }
 
 void clock_generateGroove()
@@ -30,37 +31,34 @@ void clock_generateGroove()
     }
 }
 
-float ALPHA = 0.1;
-void clock_tapTick()
+float CORRECTION_ALPHA = 0.1f;
+void clock_calculateTick()
 {
-    if (config.clockEnabled) clock.onTick();
-
     if (ticks++ % config.groove == 0)
     {
         uint64_t currentTime = micros();
         if (lastTickTime > 0) // skip on first tap
         {
             float interval = (currentTime - lastTickTime) / (config.groove * 1000);
-            clock.interval = ALPHA * interval + (1 - ALPHA) * clock.interval;
-            clock.interval = constrain(clock.interval, MINIMUM_INTERVAL, MAXIMUM_INTERVAL);
+            clock.interval = constrain(interval, MINIMUM_INTERVAL, MAXIMUM_INTERVAL);
 
             uint32_t bpm = round(60000.00 / (clock.interval * PPQN)); //round((60000.00 / (clock.interval * PPQN)) / 5) * 5;
-            clock.bpm = ALPHA * bpm + (1 - ALPHA) * clock.bpm;
-            clock.bpm = constrain(clock.bpm, MINIMUM_BPM, MAXIMUM_BPM);
-            // TODO:
-            // its near enough but need a little bit tweaking on byte offset correction
-            // issue when multiple channels active at once
-            // disrupted when there busy with midi activities
+            //bpm = CORRECTION_ALPHA * bpm + (1 - CORRECTION_ALPHA) * clock.bpm;
+            clock.bpm = constrain(bpm, MINIMUM_BPM, MAXIMUM_BPM);
+            // TODO:its near enough but need a little bit tweaking on byte offset correction
         }
-        // TODO: make it dynamic by calculating tick delayed by midi activities
-        // idea: need byte offset correction so its dynamic
-        lastTickTime = currentTime - config.byteDelay;
+        lastTickTime = currentTime + (currentTime - clock.correction);
             
-        //clock_generateGroove(); //crash the buffer
+        // if (config.clockEnabled) clock_generateGroove(); // works well but dragged
     }
+    if (ticks == PPQN) ticks = 0;
+}
 
-    if (ticks == PPQN)
-        ticks = 0;
+void clock_tapTick()
+{
+    if (config.clockEnabled) clock.onTick(); // this is sync but depends on reader
+
+    clock_calculateTick();
 }
 
 void clock_handleOnTick(TickCallback callback)

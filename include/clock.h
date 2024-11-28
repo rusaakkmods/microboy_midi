@@ -13,6 +13,7 @@ typedef void (*TickCallback)();
 struct Clock
 {
     float interval;
+    float correction;
     uint32_t bpm;
 
     TickCallback onTick;

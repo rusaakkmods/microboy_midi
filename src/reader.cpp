@@ -1,4 +1,5 @@
 #include "reader.h"
+#include "clock.h"
 #include "midi_controller.h"
 
 uint64_t lastReadGameboy = 0;
@@ -41,13 +42,12 @@ byte reader_getByte()
 #else
 byte reader_getByte()
 {
-    if ((PINF & (1 << PINF5)) == 0) return 0x7F; // gameboy is not ready to send byte or unplugged
     byte receivedByte = 0;
     PORTF |= (1 << PF6); // making sure Gameboy Serial In is HIGH! explanation: docs/references/gb_link_serial_in.md
     for (uint8_t i = 0; i < 8; i++)
     {
-        PORTF &= ~(1 << PF7); // Set LOW to ensure
-        delayMicroseconds(BIT_DELAY);
+        // PORTF &= ~(1 << PF7); // Set LOW to ensure
+        // delayMicroseconds(BIT_DELAY);
         PORTF |= (1 << PF7);          // Set HIGH
         delayMicroseconds(BIT_DELAY); // Wait for the signal to stabilize
 
@@ -99,6 +99,8 @@ void reader_read()
             midi_experimentalCorrection(value);
         // else ignore this!! beat skipp!
     }
+
+    clock.correction = micros(); // set correction time
 }
 
 void reader_init()

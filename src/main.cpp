@@ -3,7 +3,7 @@
 #include "clock.h"
 #include "reader.h"
 #include "control.h"
-#include <avr/wdt.h>
+//#include <avr/wdt.h>
 
 // TODO LIST:
 // - Implement OLED Menu for Configurations
@@ -14,13 +14,17 @@
 // - add track mute/unmute
 // - add track solo
 // - rename USB_PRODUCT to microboy
-// - todo check if usb not connected to midi device using Serial.dtr() 
-
+// - todo check if usb not connected to midi device using Serial.dtr()
 
 void setup()
 {
-  wdt_enable(WDTO_1S); // Set watchdog to 2 seconds
-  //config_init();
+  //wdt_enable(WDTO_1S); // Set watchdog to 2 seconds
+
+#ifdef DEBUG_MODE
+  Serial.begin(9600); // to serial monitor
+#endif
+
+  // config_init();
   config_default();
   reader_init();
   control_init();
@@ -30,7 +34,7 @@ void setup()
 
 void loop()
 {
-  wdt_reset(); // Reset watchdog
+  //wdt_reset(); // Reset watchdog disabled causing unable to upload 
 
   midi_handleStop(); // check stop flag
   control_read();

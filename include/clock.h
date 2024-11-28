@@ -14,7 +14,7 @@ struct Clock
 {
     float interval;
     float correction;
-    uint32_t bpm;
+    float bpm;
 
     TickCallback onTick;
 };

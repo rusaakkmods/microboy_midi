@@ -359,9 +359,6 @@ void midi_init()
 
     midiController.velocity = 100;
     
-#ifdef DEBUG_MODE
-    Serial.begin(9600); // to serial monitor
-#endif
     // Initialize MIDI Serial Communication
     Serial1.begin(31250);
 

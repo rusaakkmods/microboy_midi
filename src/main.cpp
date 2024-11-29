@@ -5,6 +5,7 @@
 #include "control.h"
 //#include <avr/wdt.h>
 
+/* 
 // TODO LIST:
 // - Implement OLED Menu for Configurations
 // - Exclude unused CC message - this could minimize glitches
@@ -15,6 +16,7 @@
 // - add track solo
 // - rename USB_PRODUCT to microboy
 // - todo check if usb not connected to midi device using Serial.dtr()
+*/
 
 void setup()
 {
@@ -40,8 +42,9 @@ void loop()
   control_read();
   reader_read();
 
-  // todo: values must be triggered by eventhandler
+  // todo: these values must be triggered by eventhandler
   display.bpm = clock.bpm;
   display.velocity = midiController.velocity;
+  
   display_main();
 }

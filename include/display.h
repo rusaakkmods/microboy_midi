@@ -4,7 +4,7 @@
 struct Display
 {
     uint32_t bpm;
-    uint32_t velocity;
+    byte velocity;
 };
 
 extern Display display;

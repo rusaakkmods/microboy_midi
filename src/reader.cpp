@@ -151,7 +151,7 @@ void reader_read()
 void reader_init()
 {
     pinMode(CLOCK_PIN, OUTPUT);
-    pinMode(SI_PIN, INPUT);
+    pinMode(SI_PIN, INPUT_PULLUP);
     pinMode(SO_PIN, OUTPUT);
 
     // IMPORTANT! Gameboy Serial In must be HIGH explanation: docs/references/gb_link_serial_in.md

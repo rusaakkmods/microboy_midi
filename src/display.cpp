@@ -12,6 +12,33 @@ Display display;
 Adafruit_SSD1306 oled(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 uint64_t lastPrint = 0;
 
+/*
+    MAIN MENU:
+    1. Showing each channel output
+    2. Showing Velocity and approximate BPM and Groove(tps) tick per step
+    
+    Next:
+    -> PU1 select MIDI Channel
+    -> PU2 select MIDI Channel
+    -> WAV select MIDI Channel
+    -> NOI select MIDI Channel
+
+    Next:
+    -> Enable/Disable Control Change
+    -> Enable/Disable Program Change
+    -> Enable/Disable Start/Stop (Realtime)
+    -> Enable/Disable Clock
+    
+    Next:
+    -> Set Groove (tick per step)
+    
+    Next:
+    -> Set Velocity
+
+    Next:
+    -> 
+*/
+
 void display_splash()
 {
     oled.clearDisplay();

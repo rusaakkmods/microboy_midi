@@ -1,14 +1,36 @@
 #include "control.h"
 #include "midi_controller.h"
 
-byte switchControlState;
-bool lastControlState = HIGH;
-bool controlPressed = false;
+
+bool lastRotaryState = HIGH;
+byte enterState;
+bool enterPressed = false;
+
+void control_checkNavigator()
+{
+  //bool shiftState = digitalRead(BUTTON_SHIFT);
+  
+  // read enter press
+  enterState = digitalRead(ROTARY_SW);
+  if (enterState == LOW && !enterPressed)
+  {
+    midiController.velocity = 0;
+    //asm volatile ("jmp 0");
+    enterPressed = true;
+  }
+
+  if (enterState == HIGH)
+  {
+    enterPressed = false;
+  }
+}
 
 ISR(PCINT0_vect)
 {
+  //bool shiftState = digitalRead(BUTTON_SHIFT);
+
   bool pinState = PINB & (1 << PB5);
-  if (lastControlState == HIGH && pinState == LOW)
+  if (lastRotaryState == HIGH && pinState == LOW)
   {
     if (digitalRead(ROTARY_DT))
     {
@@ -20,32 +42,38 @@ ISR(PCINT0_vect)
     }
     midiController.velocity = constrain(midiController.velocity, 0, 127);
   }
-  lastControlState = pinState;
+  lastRotaryState = pinState;
 }
 
 void control_read()
 {
-  switchControlState = digitalRead(ROTARY_SW);
-  if (switchControlState == LOW && !controlPressed)
-  {
-    //midiController.velocity = 0;
-    asm volatile ("jmp 0");
-    
-    controlPressed = true;
-  }
+  control_checkNavigator();
 
-  if (switchControlState == HIGH)
-  {
-    controlPressed = false;
-  }
+  // mute toggle switch
+  midiController.isPU1Muted = digitalRead(MUTE_PU1);
+  midiController.isPU2Muted = digitalRead(MUTE_PU2);
+  midiController.isWAVMuted = digitalRead(MUTE_WAV);
+  midiController.isNOIMuted = digitalRead(MUTE_NOI);
 }
 
 void control_init()
 {
+  // navigator
   pinMode(ROTARY_CLK, INPUT_PULLUP);
   pinMode(ROTARY_DT, INPUT);
+
+  PCICR |= (1 << PCIE0);   // Enable pin change interrupt for PCIE0 (Port B) 
+  PCMSK0 |= (1 << PCINT5); // Enable pin change interrupt for PB5 (PCINT5)
+
+  // enter press
   pinMode(ROTARY_SW, INPUT_PULLUP);
 
-  PCICR |= (1 << PCIE0);   // Enable pin change interrupt for PCIE0 (Port B)
-  PCMSK0 |= (1 << PCINT5); // Enable pin change interrupt for PB5 (PCINT5)
+  //shift button
+  // pinMode(BUTTON_SHIFT, INPUT_PULLUP);
+
+  // mute toggle switch
+  // pinMode(MUTE_PU1, INPUT_PULLUP);
+  // pinMode(MUTE_PU2, INPUT_PULLUP);
+  // pinMode(MUTE_WAV, INPUT_PULLUP);
+  // pinMode(MUTE_NOI, INPUT_PULLUP);
 }

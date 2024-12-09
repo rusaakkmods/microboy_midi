@@ -5,6 +5,11 @@
 struct MIDIController
 {
     volatile byte velocity;
+
+    volatile bool isPU1Muted;
+    volatile bool isPU2Muted;
+    volatile bool isWAVMuted;
+    volatile bool isNOIMuted;
 };
 
 extern MIDIController midiController;

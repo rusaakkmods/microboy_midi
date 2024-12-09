@@ -22,8 +22,8 @@ byte lastTrack;
 /**
  * @brief Flushes the MIDI buffer.
  *
- * This function flushes the MIDI buffer using the MidiUSB library. If the 
- * USE_MIDI_h macro is defined, it reads from the MIDI interface. Otherwise, 
+ * This function flushes the MIDI buffer using the MidiUSB library. If the
+ * USE_MIDI_h macro is defined, it reads from the MIDI interface. Otherwise,
  * it flushes the Serial1 buffer.
  */
 void midi_flush()
@@ -50,7 +50,7 @@ void midi_send(midiEventPacket_t message)
 {
     MidiUSB.sendMIDI(message);
 
-#ifndef USE_MIDI_h //NOT USE MIDI.h
+#ifndef USE_MIDI_h // NOT USE MIDI.h
     Serial1.write(message.byte1);
     Serial1.write(message.byte2);
     Serial1.write(message.byte3);
@@ -123,8 +123,8 @@ void midi_noteOn(byte track, byte note)
 /**
  * @brief Stops all MIDI notes on all tracks.
  *
- * This function iterates through all available tracks (0 to 3) and sends a 
- * MIDI note off message to each track, effectively stopping any currently 
+ * This function iterates through all available tracks (0 to 3) and sends a
+ * MIDI note off message to each track, effectively stopping any currently
  * playing notes.
  */
 void midi_noteStop()
@@ -261,44 +261,40 @@ void midi_sendProgramChange(byte track, byte value)
 
 /**
  * @brief Experimental function to correct Gameboy reading hiccups!!.
- * 
+ *
  * This function attempts to correct Gameboy reading hiccups by sending a note
  * using the last track if the provided value is not zero. If the value
  * is zero, it is ignored as it indicates an idle state.
- * 
+ *
  * @param value The MIDI value to be corrected.
- * 
+ *
  * @note This function is experimental
  */
 void midi_experimentalCorrection(byte value)
 {
-#ifdef DEBUG_MODE
-    Serial.print("Hiccups!!: ");
-    Serial.println(value);
-#endif
     // EXPERIMENTAL HICCUPS! CORRECTION!! LOL
-    if (value == 0)
+    if (value > 0)
     {
-        // ignore this!!! when its idle always 0
-    }
-    else
-    { // use the last track
+#ifdef DEBUG_MODE
+        Serial.print("Hiccups!!: ");
+        Serial.println(value);
+#endif
         midi_sendNote(lastTrack, value);
     }
 }
 
 /**
  * @brief Handles the MIDI stop event.
- * 
+ *
  * This function is responsible for managing the MIDI stop event, ensuring that
  * the "stop" glitch is avoided by checking the stop flag and idle time. If the
  * conditions are met, it sends a MIDI stop message, resets the clock, stops
  * any active MIDI notes, and flushes the MIDI buffer.
- * 
+ *
  * @note Conditions:
  * @note - The stop flag must be set.
  * @note - The idle time must be greater than 100.
- * 
+ *
  * @details Actions:
  * - If real-time MIDI is enabled, sends a MIDI stop message.
  * - Resets the clock.
@@ -334,14 +330,14 @@ void midi_handleStop()
 
 /**
  * @brief Handles incoming MIDI messages and processes them based on the command type.
- * 
+ *
  * This function processes different types of MIDI messages such as Note On/Off, Control Change (CC),
- * and Program Change (PC). It also handles experimental correction and clock tap tick based on the 
+ * and Program Change (PC). It also handles experimental correction and clock tap tick based on the
  * configuration settings.
- * 
+ *
  * @param message The MIDI message byte, which includes the command type and channel information.
  * @param value The value byte associated with the MIDI message, typically representing velocity or control value.
- * 
+ *
  * @details Command types:
  * - 0x00 to 0x03: Note On/Off messages for tracks 0 to 3.
  * - 0x04 to 0x07: Control Change (CC) messages for tracks 0 to 3.
@@ -415,13 +411,13 @@ void midi_message(byte message, byte value)
 // commands: 0x7D-Start, 0x7E-Stop, 0x7F-Idle
 /**
  * @brief Handles MIDI real-time messages.
- * 
+ *
  * This function processes incoming MIDI real-time messages and performs actions
  * based on the command received. It supports Start (0x7D), Stop (0x7E), and Idle (0x7F)
  * commands. The function also includes debug output for troubleshooting.
- * 
+ *
  * @param command The MIDI real-time command byte.
- * 
+ *
  * @details Command values:
  * - 0x7D: Start - Resets the clock, sends a start message, and sets the start flag.
  * - 0x7E: Stop - Sets the stop flag to debounce stop messages.
@@ -505,7 +501,7 @@ void midi_init()
     idleTime = 0;
 
     midiController.velocity = 100;
-    
+
     Serial1.begin(31250); // DIN out
 
 #ifdef USE_MIDI_h

@@ -60,7 +60,7 @@ void control_init()
 {
   // navigator
   pinMode(ROTARY_CLK, INPUT_PULLUP);
-  pinMode(ROTARY_DT, INPUT);
+  pinMode(ROTARY_DT, INPUT_PULLUP);
 
   PCICR |= (1 << PCIE0);   // Enable pin change interrupt for PCIE0 (Port B) 
   PCMSK0 |= (1 << PCINT5); // Enable pin change interrupt for PB5 (PCINT5)

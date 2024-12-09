@@ -8,13 +8,13 @@ bool enterPressed = false;
 
 void control_checkNavigator()
 {
-  //bool shiftState = digitalRead(BUTTON_SHIFT);
+  bool shiftState = !digitalRead(BUTTON_SHIFT);
   
   // read enter press
   enterState = digitalRead(ROTARY_SW);
   if (enterState == LOW && !enterPressed)
   {
-    midiController.velocity = 0;
+    if (shiftState) midiController.velocity = 0;
     //asm volatile ("jmp 0");
     enterPressed = true;
   }
@@ -27,7 +27,7 @@ void control_checkNavigator()
 
 ISR(PCINT0_vect)
 {
-  //bool shiftState = digitalRead(BUTTON_SHIFT);
+  bool shiftState = digitalRead(BUTTON_SHIFT);
 
   bool pinState = PINB & (1 << PB5);
   if (lastRotaryState == HIGH && pinState == LOW)
@@ -69,11 +69,11 @@ void control_init()
   pinMode(ROTARY_SW, INPUT_PULLUP);
 
   //shift button
-  // pinMode(BUTTON_SHIFT, INPUT_PULLUP);
+  pinMode(BUTTON_SHIFT, INPUT_PULLUP);
 
   // mute toggle switch
-  // pinMode(MUTE_PU1, INPUT_PULLUP);
-  // pinMode(MUTE_PU2, INPUT_PULLUP);
-  // pinMode(MUTE_WAV, INPUT_PULLUP);
-  // pinMode(MUTE_NOI, INPUT_PULLUP);
+  pinMode(MUTE_PU1, INPUT_PULLUP);
+  pinMode(MUTE_PU2, INPUT_PULLUP);
+  pinMode(MUTE_WAV, INPUT_PULLUP);
+  pinMode(MUTE_NOI, INPUT_PULLUP);
 }

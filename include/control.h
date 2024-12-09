@@ -11,10 +11,10 @@
 #define BUTTON_SHIFT 6
 
 // mute toggle switch
-#define MUTE_PU1 10
-#define MUTE_PU2 16
-#define MUTE_WAV 14
-#define MUTE_NOI 15
+#define MUTE_PU1 15
+#define MUTE_PU2 14
+#define MUTE_WAV 16
+#define MUTE_NOI 10
 
 void control_init();
 void control_read();

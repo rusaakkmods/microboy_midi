@@ -19,6 +19,23 @@ bool startFlag;
 uint64_t idleTime;
 byte lastTrack;
 
+bool midi_isTrackMuted(byte track)
+{
+    switch (track)
+    {
+    case 0:
+        return midiController.isPU1Muted;
+    case 1:
+        return midiController.isPU2Muted;
+    case 2:
+        return midiController.isWAVMuted;
+    case 3:
+        return midiController.isNOIMuted;
+    default:
+        return false;
+    }
+}
+
 /**
  * @brief Flushes the MIDI buffer.
  *
@@ -354,11 +371,15 @@ void midi_message(byte message, byte value)
     if (command < 0x04)
     { // 0-3 represent Track index
         track = command;
+        if (midi_isTrackMuted(track)) return;
+
         midi_sendNote(track, value);
     }
     else if (command < 0x08)
     { // 4-7 represent CC message
         track = command - 0x04;
+        if (midi_isTrackMuted(track)) return;
+
         if (config.ccEnabled)
         {
             midi_sendControlChange(track, value);
@@ -375,6 +396,8 @@ void midi_message(byte message, byte value)
     else if (command < 0x0C)
     { // 8-11 represent PC message
         track = command - 0x08;
+        if (midi_isTrackMuted(track)) return;
+
         if (value == 0x7F) // use the GUNSHOT!!! y-FF command!
         {
             clock_tapTick();
@@ -398,12 +421,13 @@ void midi_message(byte message, byte value)
     else if (command <= 0x0F)
     { // 12-15 not yet sure!
         track = command - 0x0C;
+        if (midi_isTrackMuted(track)) return;
         // unknown! skip consume one value byte usually 0 or 127
     }
-    else
-    {
-        return; // not supposed to happened!!
-    }
+    // else
+    // {
+    //     return; // not supposed to happened!!
+    // }
     lastTrack = track;
 }
 

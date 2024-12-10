@@ -38,9 +38,9 @@ void loop()
 {
   //wdt_reset(); // Reset watchdog disabled causing unable to upload 
 
-  reader_checkConnection(); // check connection
+  // reader_checkConnection(); // check connection
 
-  if (pinChecker.isConnected) {
+  // if (pinChecker.isConnected) {
     midi_handleStop(); // check stop flag
     control_read();
     reader_read();
@@ -50,7 +50,7 @@ void loop()
     display.velocity = midiController.velocity;
 
     display_main();
-  } else {
-    display_disconnected();
-  }
+  // } else {
+  //   display_disconnected();
+  // }
 }

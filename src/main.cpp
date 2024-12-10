@@ -38,13 +38,19 @@ void loop()
 {
   //wdt_reset(); // Reset watchdog disabled causing unable to upload 
 
-  midi_handleStop(); // check stop flag
-  control_read();
-  reader_read();
+  reader_checkConnection(); // check connection
 
-  // todo: these values must be triggered by eventhandler
-  display.bpm = clock.bpm;
-  display.velocity = midiController.velocity;
-  
-  display_main();
+  if (pinChecker.isConnected) {
+    midi_handleStop(); // check stop flag
+    control_read();
+    reader_read();
+
+    // todo: these values must be triggered by eventhandler
+    display.bpm = clock.bpm;
+    display.velocity = midiController.velocity;
+
+    display_main();
+  } else {
+    display_disconnected();
+  }
 }

@@ -27,7 +27,7 @@ void control_checkNavigator()
 
 ISR(PCINT0_vect)
 {
-  bool shiftState = digitalRead(BUTTON_SHIFT);
+  bool shiftState = !digitalRead(BUTTON_SHIFT);
 
   bool pinState = PINB & (1 << PB5);
   if (lastRotaryState == HIGH && pinState == LOW)

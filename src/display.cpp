@@ -61,6 +61,16 @@ void display_init()
     display_splash();
 }
 
+void display_disconnected()
+{
+    oled.clearDisplay();
+    oled.setCursor(0, 0);
+    oled.println(_USB_PRODUCT);
+    oled.setCursor(0, 15);
+    oled.println("<<DISCONNECTED>>");
+    oled.display();
+}
+
 void display_main()
 {
     uint64_t currentTime = millis();

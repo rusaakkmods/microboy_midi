@@ -1,11 +1,62 @@
 #include "reader.h"
 #include "clock.h"
 #include "midi_controller.h"
+#include <util/atomic.h>
 
 uint64_t lastReadGameboy = 0;
 bool isCommandWaiting = false;
 byte commandWaiting = 0x00;
 byte correctionByte = 0x00;
+
+PinChecker pinChecker = {
+    .state = CHECK_HIGH,
+    .stateStartTime = 0,
+    .isConnected = false
+};
+
+bool reader_checkConnection() {
+    static const uint32_t STATE_TIMEOUT = 10;
+    uint32_t currentTime = micros();
+    
+    switch(pinChecker.state) {
+        case CHECK_HIGH:
+            digitalWrite(SO_PIN, HIGH);
+            pinChecker.stateStartTime = currentTime;
+            pinChecker.state = CHECK_LOW;
+            break;
+            
+        case CHECK_LOW:
+            if(currentTime - pinChecker.stateStartTime >= STATE_TIMEOUT) {
+                if(digitalRead(SI_PIN) != HIGH) {
+                    pinChecker.isConnected = false;
+                    pinChecker.state = CHECK_DONE;
+                    break;
+                }
+                digitalWrite(SO_PIN, LOW);
+                pinChecker.stateStartTime = currentTime;
+                pinChecker.state = CHECK_RESTORE;
+            }
+            break;
+            
+        case CHECK_RESTORE:
+            if(currentTime - pinChecker.stateStartTime >= STATE_TIMEOUT) {
+                if(digitalRead(SI_PIN) != LOW) {
+                    pinChecker.isConnected = false;
+                } else {
+                    pinChecker.isConnected = true;
+                }
+                digitalWrite(SO_PIN, HIGH);
+                pinChecker.state = CHECK_DONE;
+            }
+            break;
+            
+        case CHECK_DONE:
+            pinChecker.state = CHECK_HIGH;
+            return pinChecker.isConnected;
+    }
+    
+    return pinChecker.isConnected;
+}
 
 #ifdef ARDUINOBOY_READER
 /* This one based on Arduinoboy version, it is more stable on higher tempo
@@ -56,18 +107,21 @@ byte reader_getByte()
 byte reader_getByte()
 {
     byte receivedByte = 0;
-    PORTF |= (1 << PF6); // making sure Gameboy Serial In is HIGH! explanation: docs/references/gb_link_serial_in.md
-    for (uint8_t i = 0; i < 8; i++)
-    {
-        // PORTF &= ~(1 << PF7); // Set LOW to ensure
-        // delayMicroseconds(BIT_DELAY);
-        PORTF |= (1 << PF7);          // Set HIGH
-        delayMicroseconds(BIT_DELAY); // Wait for the signal to stabilize
 
-        receivedByte = (receivedByte << 1) + ((PINF & (1 << PINF5)) ? 1 : 0); // Read a bit, and shift it into the byte
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { // runs with interrupts disabled
+        PORTF |= (1 << PF6); // making sure Gameboy Serial In is HIGH! explanation: docs/references/gb_link_serial_in.md
+        for (uint8_t i = 0; i < 8; i++)
+        {
+            // PORTF &= ~(1 << PF7); // Set LOW to ensure
+            // delayMicroseconds(BIT_DELAY);
+            PORTF |= (1 << PF7);          // Set HIGH
+            delayMicroseconds(BIT_DELAY); // Wait for the signal to stabilize
 
-        PORTF &= ~(1 << PF7); // Set LOW
-        delayMicroseconds(BIT_DELAY);
+            receivedByte = (receivedByte << 1) + ((PINF & (1 << PINF5)) ? 1 : 0); // Read a bit, and shift it into the byte
+
+            PORTF &= ~(1 << PF7); // Set LOW
+            delayMicroseconds(BIT_DELAY);
+        }
     }
 
 #ifndef NON_BLOCKING_DELAY
@@ -156,4 +210,8 @@ void reader_init()
 
     // IMPORTANT! Gameboy Serial In must be HIGH explanation: docs/references/gb_link_serial_in.md
     digitalWrite(SO_PIN, HIGH);
+
+    // Initial connection check
+    pinChecker.state = CHECK_HIGH;
+    pinChecker.isConnected = false;
 }

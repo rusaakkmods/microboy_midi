@@ -11,3 +11,4 @@ extern Display display;
 
 void display_init();
 void display_main();
+void display_disconnected();

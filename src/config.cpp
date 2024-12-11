@@ -10,7 +10,7 @@ Config config;
 
 void config_default()
 {
-    config.byteDelay = 4000; // at least 1000-5000 for stable reading
+    config.byteDelay = 2000; // at least 1000-5000 for stable reading
     config.outputChannel[0] = 1;
     config.outputChannel[1] = 2;
     config.outputChannel[2] = 3;

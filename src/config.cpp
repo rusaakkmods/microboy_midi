@@ -16,15 +16,15 @@ void config_default()
     config.outputChannel[2] = 3;
     config.outputChannel[3] = 4;
 
-    config.ccMode[0] = true;
-    config.ccMode[1] = true;
-    config.ccMode[2] = true;
-    config.ccMode[3] = true;
+    config.ccMode[0] = false;
+    config.ccMode[1] = false;
+    config.ccMode[2] = false;
+    config.ccMode[3] = false;
 
-    config.ccScaling[0] = true;
-    config.ccScaling[1] = true;
-    config.ccScaling[2] = true;
-    config.ccScaling[3] = true;
+    config.ccScaling[0] = false;
+    config.ccScaling[1] = false;
+    config.ccScaling[2] = false;
+    config.ccScaling[3] = false;
 
     byte ccNumbersInit[4][7] = {
         {1, 2, 3, 7, 10, 11, 12},

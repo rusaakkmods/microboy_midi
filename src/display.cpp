@@ -12,6 +12,26 @@ Display display;
 Adafruit_SSD1306 oled(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 uint64_t lastPrint = 0;
 
+SubMenu channelSubMenu[] = {
+    {"PU1", { VALUE_1_16, 1, 16, config.outputChannel[0] }},
+    {"PU2", { VALUE_1_16, 1, 16, config.outputChannel[1] }},
+    {"WAV", { VALUE_1_16, 1, 16, config.outputChannel[2] }},
+    {"NOI", { VALUE_1_16, 1, 16, config.outputChannel[3] }}
+};
+
+SubMenu ccSubMenu[] = {
+    {"PU1", { ON_OFF, 0, 1, config.ccMode[0] }},
+    {"PU2", { ON_OFF, 0, 1, config.ccMode[1] }},
+    {"WAV", { ON_OFF, 0, 1, config.ccMode[2] }},
+    {"NOI", { ON_OFF, 0, 1, config.ccMode[3] }}
+};
+
+MenuItem mainMenu[] = {
+    {"CH", channelSubMenu},
+    {"CC", ccSubMenu},
+    {"PC", nullptr}
+};
+
 /*
     MAIN MENU:
     1. Showing each channel output

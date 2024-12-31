@@ -105,32 +105,28 @@ void triggerMainOnOff() {
 }
 
 void readStates() {
-    if (!shiftPressed && digitalRead(SHIFT_PIN) == LOW) {
-        shiftPressed = true;
-    } else if (digitalRead(SHIFT_PIN) == HIGH) {
-        shiftPressed = false;
-    }
+    bool shiftState = digitalRead(SHIFT_PIN) == LOW;
+    bool buttonState = digitalRead(BUTTON_PIN) == LOW;
 
-    if (!buttonPressed && digitalRead(BUTTON_PIN) == LOW) {
-        buttonPressed = true;
-    } else if (digitalRead(BUTTON_PIN) == HIGH) {
-        buttonPressed = false;
-        clicked = false;
-    }
+    shiftPressed = shiftState;
+    buttonPressed = buttonState;
 
-    if (!comboPressed && shiftPressed && buttonPressed) {
-        comboPressed = true;
-        if (currentState == MAIN_DISPLAY) {
-            triggerMainOnOff();
-        } else if (currentState == MAIN_MENU) {
-            currentState = MAIN_DISPLAY;
-        } else if (currentState == SUBMENU) {
-            currentState = MAIN_MENU;
+    if (shiftPressed && buttonPressed) {
+        if (!comboPressed) {
+            comboPressed = true;
+            if (currentState == MAIN_DISPLAY) {
+                triggerMainOnOff();
+            } else if (currentState == MAIN_MENU) {
+                currentState = MAIN_DISPLAY;
+            } else if (currentState == SUBMENU) {
+                currentState = MAIN_MENU;
+            }
         }
-    } 
-    
-    if (!shiftPressed || !buttonPressed) {
+    } else {
         comboPressed = false;
+    }
+
+    if (!shiftPressed || !buttonPressed) {
         if (!clicked && buttonPressed) {
             clicked = true;
             if (currentState == MAIN_DISPLAY) {
@@ -138,6 +134,8 @@ void readStates() {
             } else if (currentState == MAIN_MENU) {
                 currentState = SUBMENU;
             }
+        } else if (!buttonPressed) {
+            clicked = false;
         }
     }
 }
@@ -162,88 +160,74 @@ void loop() {
 
 // --- Interrupt Service Routines ---
 ISR(PCINT0_vect) {
-  static unsigned long lastInterruptTime = 0; // For debouncing
-  static int lastEncoded = 0; // To track previous state for smoother transitions
-  static int noiseFilterCounter = 0; // Filter for noise
+    static unsigned long lastInterruptTime = 0; // For debouncing
+    static int lastEncoded = 0; // To track previous state for smoother transitions
+    static int noiseFilterCounter = 0; // Filter for noise
 
-  unsigned long interruptTime = millis();
+    unsigned long interruptTime = millis();
 
-  if (interruptTime - lastInterruptTime > 5) { // Adjust debounce delay to 10ms
-    int MSB = digitalRead(ENCODER_PIN_A); // Most significant bit
-    int LSB = digitalRead(ENCODER_PIN_B); // Least significant bit
+    if (interruptTime - lastInterruptTime > 5) { // Adjust debounce delay to 5ms
+        int MSB = digitalRead(ENCODER_PIN_A); // Most significant bit
+        int LSB = digitalRead(ENCODER_PIN_B); // Least significant bit
 
-    int encoded = (MSB << 1) | LSB; // Combine the two pin states
-    int sum = (lastEncoded << 2) | encoded; // Create a unique value for transition
+        int encoded = (MSB << 1) | LSB; // Combine the two pin states
+        int sum = (lastEncoded << 2) | encoded; // Create a unique value for transition
 
-    switch (sum) {
-      case 0b0001:
-      case 0b0111:
-      case 0b1110:
-      case 0b1000:
-        noiseFilterCounter++;
-        if (noiseFilterCounter >= 2) { // Require multiple valid signals to register
-          encoderPosition++;
-          noiseFilterCounter = 0;
+        switch (sum) {
+            case 0b0001:
+            case 0b0111:
+            case 0b1110:
+            case 0b1000:
+                noiseFilterCounter++;
+                if (noiseFilterCounter >= 2) { // Require multiple valid signals to register
+                    encoderPosition++;
+                    noiseFilterCounter = 0;
+                }
+                break;
+            case 0b0010:
+            case 0b1011:
+            case 0b1101:
+            case 0b0100:
+                noiseFilterCounter++;
+                if (noiseFilterCounter >= 2) { // Require multiple valid signals to register
+                    encoderPosition--;
+                    noiseFilterCounter = 0;
+                }
+                break;
+            default:
+                // Invalid or noisy transition, reset filter
+                noiseFilterCounter = 0;
+                break;
         }
-        break;
-      case 0b0010:
-      case 0b1011:
-      case 0b1101:
-      case 0b0100:
-        noiseFilterCounter++;
-        if (noiseFilterCounter >= 2) { // Require multiple valid signals to register
-          encoderPosition--;
-          noiseFilterCounter = 0;
+
+        lastEncoded = encoded;
+        lastInterruptTime = interruptTime;
+
+        if (encoderPosition != lastEncoderPosition) {
+            int delta = encoderPosition - lastEncoderPosition;
+            lastEncoderPosition = encoderPosition;
+
+            switch (currentState) {
+                case MAIN_DISPLAY:
+                    if (shiftPressed) {
+                        cursors[mainIndex].value += delta;
+                    } else {
+                        mainIndex = (mainIndex + delta + NUM_MAIN_CURSORS) % NUM_MAIN_CURSORS;
+                    }
+                    break;
+                case MAIN_MENU:
+                    menuIndex = (menuIndex + delta + 2) % 2;
+                    break;
+                case SUBMENU:
+                    if (shiftPressed) {
+                        mainMenu[menuIndex].subMenu[submenuIndex].value = constrain(mainMenu[menuIndex].subMenu[submenuIndex].value + delta, 0, 100);
+                    } else {
+                        submenuIndex = (submenuIndex + delta + 4) % 4;
+                    }
+                    break;
+            }
         }
-        break;
-      default:
-        // Invalid or noisy transition, reset filter
-        noiseFilterCounter = 0;
-        break;
     }
-
-    lastEncoded = encoded;
-    lastInterruptTime = interruptTime;
-
-    if (encoderPosition != lastEncoderPosition) {
-      if (currentState == MAIN_DISPLAY) {
-        if (encoderPosition > lastEncoderPosition) {
-          if (shiftPressed) {
-            cursors[mainIndex].value += 1;
-          } else {
-            mainIndex = (mainIndex + 1) % NUM_MAIN_CURSORS;
-          }
-        } else {
-          if (shiftPressed) {
-            cursors[mainIndex].value -= 1;
-          } else {
-            mainIndex = (mainIndex - 1 + NUM_MAIN_CURSORS) % NUM_MAIN_CURSORS;
-          }
-        }
-      } else if (currentState == MAIN_MENU) {
-        if (encoderPosition > lastEncoderPosition) {
-          menuIndex = (menuIndex + 1) % 2;
-        } else {
-          menuIndex = (menuIndex - 1 + 2) % 2;
-        }
-      } else if (currentState == SUBMENU) {
-        if (encoderPosition > lastEncoderPosition) {
-          if (shiftPressed) {
-            mainMenu[menuIndex].subMenu[submenuIndex].value = constrain(mainMenu[menuIndex].subMenu[submenuIndex].value + 1, 0, 100);
-          } else {
-            submenuIndex = (submenuIndex + 1) % 4;
-          }
-        } else {
-          if (shiftPressed) {
-            mainMenu[menuIndex].subMenu[submenuIndex].value = constrain(mainMenu[menuIndex].subMenu[submenuIndex].value - 1, 0, 100);
-          } else {
-            submenuIndex = (submenuIndex - 1 + 4) % 4;
-          }
-        }
-      }
-      lastEncoderPosition = encoderPosition;
-    }
-  }
 }
 
 // --- Display Functions ---

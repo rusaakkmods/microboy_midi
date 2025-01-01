@@ -27,32 +27,6 @@ void config_default()
     config.byteDelay = 2000; // at least 1000-5000 for stable reading
     config.experimentalCorrectionEnabled = true;
 
-    // config ADVANCE!
-    config.ccMode[0] = false;
-    config.ccMode[1] = false;
-    config.ccMode[2] = false;
-    config.ccMode[3] = false;
-
-    config.ccScaling[0] = false;
-    config.ccScaling[1] = false;
-    config.ccScaling[2] = false;
-    config.ccScaling[3] = false;
-
-    byte ccNumbersInit[4][7] = {
-        {1, 2, 3, 7, 10, 11, 12},
-        {1, 2, 3, 7, 10, 11, 12},
-        {1, 2, 3, 7, 10, 11, 12},
-        {1, 2, 3, 7, 10, 11, 12}};
-
-    for (int i = 0; i < 4; i++)
-    {
-        for (int j = 0; j < 7; j++)
-        {
-            config.ccNumbers[i][j] = ccNumbersInit[i][j];
-        }
-    }
-    config.groove = 6;
-
     // eeprom version
     config.version = EEPROM_CHECK_NUMBER;
 }

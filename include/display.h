@@ -1,6 +1,8 @@
 #pragma once
 #include "config.h"
 
+#define NUM_MAIN_MENU 5
+
 enum MenuState { 
     MAIN_DISPLAY, 
     MAIN_MENU, 
@@ -23,39 +25,38 @@ enum TriggerType {
 };
 
 struct Cursor {
-  int x;
-  int y;
-  int w;
-  int h;
-  int value;
+  uint8_t x;
+  uint8_t y;
+  uint8_t w;
+  uint8_t h;
   ValueType type;
   TriggerType trigger;
 };
 
 struct SubMenu {
-    char* name;
+    const char* name;
     ValueType type;
-    String value;
 };
 
 struct MainMenu {
-    char* name;
+    const char* name;
     uint8_t size;
-    SubMenu* subMenus;
+    const SubMenu* subMenus;
 };
 
 struct Display
 {
     MenuState currentState;
 
-    int mainCursorIndex;
-    Cursor* mainCursors;
-    int cursorSize;
+    uint8_t mainCursorIndex;
+    const Cursor* mainCursors;
+    uint8_t cursorSize;
 
-    int menuIndex;
-    int submenuIndex;
-    MainMenu* mainMenus;
-    int mainMenuSize;
+    uint8_t menuIndex;
+    uint8_t submenuIndex;
+    const MainMenu* mainMenus;
+    String subMenuValues[NUM_MAIN_MENU];
+    uint8_t mainMenuSize;
 };
 
 extern Display display;

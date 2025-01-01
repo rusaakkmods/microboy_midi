@@ -19,12 +19,6 @@ struct Config
   // reader
   uint32_t byteDelay;
   bool experimentalCorrectionEnabled;
-  
-  // ADVANCE!
-  bool ccMode[4];
-  bool ccScaling[4]; //TODO: remove scaling feature limit to 0-112 or 0-15
-  byte ccNumbers[4][7];
-  byte groove;
 
   // eeprom version
   uint32_t version;

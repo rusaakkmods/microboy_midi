@@ -4,7 +4,9 @@ Clock clock;
 
 uint8_t ticks;
 uint64_t lastTickTime;
-float CORRECTION_ALPHA = 0.2f;
+const float CORRECTION_ALPHA = 0.2f;
+#define GROOVE 6
+
 
 void clock_init()
 {
@@ -24,27 +26,6 @@ void clock_reset()
     clock.interval = 0.0;
     clock.bpm = 0.00;
     clock.correction = 0;
-}
-
-/**
- * @brief Generates a groove by triggering the clock's onTick callback at regular intervals.
- *
- * This function will repeatedly call the clock's onTick callback function a number of times
- * specified by the groove configuration. Each call to the onTick callback is followed by a 
- * delay specified by the clock's interval.
- *
- * @note If the clock's onTick callback is not set, the function will return immediately.
- */
-void clock_generateGroove()
-{
-    if (!clock.onTick)
-        return;
-
-    for (uint8_t tick = 0; tick < config.groove; tick++)
-    {
-        clock.onTick();
-        delayMicroseconds(clock.interval);
-    }
 }
 
 /**
@@ -70,12 +51,12 @@ void clock_generateGroove()
  */
 void clock_calculateTick()
 {
-    if (ticks % config.groove == 0)
+    if (ticks % GROOVE == 0)
     {
         uint64_t currentTime = micros();
         if (lastTickTime > 0) // skip on first tap
         {
-            float interval = (currentTime - lastTickTime) / (config.groove * 1000);
+            float interval = (currentTime - lastTickTime) / (GROOVE * 1000);
             interval = floor(CORRECTION_ALPHA * interval + (1 - CORRECTION_ALPHA) * clock.interval);
             interval = constrain(interval, MINIMUM_INTERVAL, MAXIMUM_INTERVAL);
             clock.interval = interval;

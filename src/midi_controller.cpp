@@ -177,66 +177,10 @@ void midi_sendNote(byte track, byte note)
     }
 }
 
-/*  Reference from Arduinoboy (https://github.com/trash80/Arduinoboy)
-    by Timothy Lamb @trash80
-    ------------------------------------
-    X## - Sends a MIDI CC -
-    By default in Arduinoboy the high nibble selects a CC#, and the low nibble sends a value 0-F to 0-127.
-    This can be changed to allow just 1 midi CC with a range of 00-6F, or 7 CCs with scaled or unscaled values.
-
-    CC Mode:
-    default: 1 for all 4 tracks
-    - 0: use 1 midi CC, with the range of 00-6F,
-    - 1: uses 7 midi CCs with the range of 0-F (the command's first digit would be the CC#)
-    either way the value is scaled to 0-127 on output
-    ------------------------------------
-    CC Scaling:
-    default: 1 for all 4 tracks
-    - 1: scales the CC value range to 0-127 as oppose to lsdj's incomming 00-6F (0-112) or 0-F (0-15)
-    - 0: no scaling, the value is directly sent to midi out 0-112 or 0-15
-    scaling in c:
-    byte scaledValue = map(value, 0, 112, 0, 127); // 0-112 to 0-127
-    byte scaledValue = map(value, 0, 15, 0, 127); // 0-112 to 0-127
-    ------------------------------------
-    CC Message Numbers
-    default options: {1,2,3,7,10,11,12} for each track, these options are CC numbers for lsdj midi out
-    If CC Mode is 1, all 7 ccs options are used per channel at the cost of a limited resolution of 0-F
-*/
 void midi_sendControlChange(byte track, byte value)
 {
-    byte ccNumber;
-    byte ccValue;
-
-    if (config.ccMode[track])
-    {
-        if (config.ccScaling[track])
-        {
-            // CC Mode 1 with scaling
-            ccNumber = config.ccNumbers[track][(value & 0xF0) >> 4]; // High nibble
-            ccValue = map(value & 0x0F, 0, 15, 0, 127);              // Low nibble
-        }
-        else
-        {
-            // CC Mode 1 without scaling
-            ccNumber = config.ccNumbers[track][(value & 0xF0) >> 4]; // High nibble
-            ccValue = value & 0x0F;                                  // Low nibble
-        }
-    }
-    else
-    {
-        if (config.ccScaling[track])
-        {
-            // CC Mode 0 with scaling
-            ccNumber = config.ccNumbers[track][0]; // Use the first CC number for Mode 0
-            ccValue = map(value, 0, 112, 0, 127);  // Scale the value
-        }
-        else
-        {
-            // CC Mode 0 without scaling
-            ccNumber = config.ccNumbers[track][0]; // Use the first CC number for Mode 0
-            ccValue = value;                       // Direct value
-        }
-    }
+    byte ccNumber = 1; // Use the first CC number for Mode 0
+    byte ccValue = value; 
 
 #ifdef USE_MIDI_h
     MIDI.sendControlChange(ccNumber, ccValue, config.outputChannel[track]);

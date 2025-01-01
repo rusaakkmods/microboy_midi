@@ -4,14 +4,14 @@
 
 struct MIDIController
 {
-    volatile bool isSolo;
-    volatile byte soloTrack;
-    volatile bool isMute;
+    bool isSolo;
+    byte soloTrack;
+    bool isMute;
 
-    volatile bool isPU1Muted;
-    volatile bool isPU2Muted;
-    volatile bool isWAVMuted;
-    volatile bool isNOIMuted;
+    bool isPU1Muted;
+    bool isPU2Muted;
+    bool isWAVMuted;
+    bool isNOIMuted;
 };
 
 extern MIDIController midiController;

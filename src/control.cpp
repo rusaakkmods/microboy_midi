@@ -186,29 +186,25 @@ ISR(PCINT0_vect)
         case SUBMENU:
           if (shiftPressed)
           {
-            SubMenu sub = display.mainMenus[display.menuIndex].subMenus[display.submenuIndex];
-            //int new_value;
-            switch (sub.type)
+            String value = display.subMenuValues[display.submenuIndex];
+            switch (display.mainMenus[display.menuIndex].subMenus[display.submenuIndex].type)
             {
               case ON_OFF:
-                //new_value = sub.value == "OFF" ? true : false;
-                sub.value = sub.value == "OFF" ? "ON" : "OFF";
+                value = value == "OFF" ? "ON" : "OFF";
                 break;
               case RANGE_1_16:
-                //new_value = constrain(sub.value.toInt() + delta, 1, 16);
-                sub.value = String(constrain(sub.value.toInt() + delta, 1, 16));
+                value = String(constrain(value.toInt() + delta, 1, 16));
                 break;
               case RANGE_0_127:
-                //new_value = constrain(sub.value.toInt() + delta, 0, 127);
-                sub.value = String(constrain(sub.value.toInt() + delta, 0, 127));
+                value = String(constrain(value.toInt() + delta, 0, 127));
                 break;
               case RANGE_1000_5000_BY_100:
-                //new_value = constrain(sub.value.toInt() + delta * 100, 1000, 5000);
-                sub.value = String(constrain(sub.value.toInt() + delta * 100, 1000, 5000));
+                value = String(constrain(value.toInt() + delta * 100, 1000, 5000));
                 break;
               default: //ignore for now
                 break;
             }
+            display.subMenuValues[display.submenuIndex] = value;
             //todo update config value???
             //mainMenu[menuIndex].subMenu[submenuIndex].value = constrain(mainMenu[menuIndex].subMenu[submenuIndex].value + delta, 0, 100);
           }

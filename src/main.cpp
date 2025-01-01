@@ -41,15 +41,11 @@ void loop()
   // reader_checkConnection(); // check connection
 
   // if (pinChecker.isConnected) {
-    midi_handleStop(); // check stop flag
-    control_read();
-    reader_read();
+    //midi_handleStop(); // check stop flag
+    //control_read();
+    //reader_read();
 
-    // todo: these values must be triggered by eventhandler
-    display.bpm = clock.bpm;
-    display.velocity = midiController.velocity;
-
-    display_main();
+    display_refresh();
   // } else {
   //   display_disconnected();
   // }

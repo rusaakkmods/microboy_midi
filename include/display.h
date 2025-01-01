@@ -1,46 +1,62 @@
 #pragma once
 #include "config.h"
 
+enum MenuState { 
+    MAIN_DISPLAY, 
+    MAIN_MENU, 
+    SUBMENU 
+};
+
+struct Cursor {
+  int x;
+  int y;
+  int w;
+  int h;
+  int value;
+};
+
 enum ValueType {
     ON_OFF,
-    VALUE_1_16,
-    VALUE_0_127
+    RANGE_1_16,
+    RANGE_0_127,
+    RANGE_1000_5000_BY_100,
+    TEXT,
+    ACTION
 };
 
-struct ItemValue
-{
+struct SubMenu {
+    char* name;
     ValueType type;
-    byte min;
-    byte max;
-    byte value;
+    char* value;
 };
 
-struct SubMenu
-{
-    char *name;
-    ItemValue value;
-};
-
-struct MenuItem
-{
-    char *name;
-    SubMenu *subMenu[];
+struct MainMenu {
+    String name;
+    uint8_t size;
+    SubMenu* subMenus;
 };
 
 struct Display
 {
-    uint32_t bpm;
+    MenuState currentState;
+    bool mute_pu1;
+    bool mute_pu2;
+    bool mute_wav;
+    bool mute_noi;
     byte velocity;
-    byte mute_pu1;
-    byte mute_pu2;
-    byte mute_wav;
-    byte mute_noi;
-};
 
-extern MenuItem mainMenu[];
+    int mainCursorIndex;
+    Cursor* mainCursors;
+    int cursorSize;
+
+    int menuIndex;
+    int submenuIndex;
+    MainMenu* mainMenus;
+    int mainMenuSize;
+};
 
 extern Display display;
 
 void display_init();
-void display_main();
+void display_refresh();
 void display_disconnected();

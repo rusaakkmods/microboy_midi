@@ -1,14 +1,11 @@
 #pragma once
 #include "config.h"
 
-// rotary encoder for control and settings
-#define ROTARY_CLK 9
-#define ROTARY_DT 8
-// rotary enter press
-#define ROTARY_SW 7
-
-// shift button
-#define BUTTON_SHIFT 6
+// Pin definitions
+#define ENCODER_PIN_A 8  // PCINT5
+#define ENCODER_PIN_B 9  // PCINT4
+#define BUTTON_PIN 7
+#define SHIFT_PIN 6
 
 // mute toggle switch
 #define MUTE_PU1 10

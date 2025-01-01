@@ -10,12 +10,24 @@ Config config;
 
 void config_default()
 {
-    config.byteDelay = 2000; // at least 1000-5000 for stable reading
+    // config channels
     config.outputChannel[0] = 1;
     config.outputChannel[1] = 2;
     config.outputChannel[2] = 3;
     config.outputChannel[3] = 4;
 
+    // config MIDI
+    config.velocity = 100;
+    config.pcEnabled = false;
+    config.ccEnabled = false;
+    config.realTimeEnabled = true;
+    config.clockEnabled = true;
+
+    // config reader
+    config.byteDelay = 2000; // at least 1000-5000 for stable reading
+    config.experimentalCorrectionEnabled = true;
+
+    // config ADVANCE!
     config.ccMode[0] = false;
     config.ccMode[1] = false;
     config.ccMode[2] = false;
@@ -39,13 +51,9 @@ void config_default()
             config.ccNumbers[i][j] = ccNumbersInit[i][j];
         }
     }
-
-    config.pcEnabled = false;
-    config.ccEnabled = false;
-    config.experimentalCorrectionEnabled = true;
-    config.realTimeEnabled = true;
-    config.clockEnabled = true;
     config.groove = 6;
+
+    // eeprom version
     config.version = EEPROM_CHECK_NUMBER;
 }
 

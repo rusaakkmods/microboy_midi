@@ -4,7 +4,9 @@
 
 struct MIDIController
 {
-    volatile byte velocity;
+    volatile bool isSolo;
+    volatile byte soloTrack;
+    volatile bool isMute;
 
     volatile bool isPU1Muted;
     volatile bool isPU2Muted;

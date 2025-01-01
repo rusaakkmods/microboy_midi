@@ -131,8 +131,11 @@ void midi_noteOn(byte track, byte note)
 #ifdef USE_MIDI_h
     MIDI.sendNoteOn(note, midiController.velocity, config.outputChannel[track]);
 #endif
-
-    midi_send({0x09, static_cast<uint8_t>(0x90 | (config.outputChannel[track] - 1)), note, midiController.velocity});
+    byte vel = config.velocity;
+    if ((midiController.isSolo && track != midiController.isSolo) || midiController.isMute) {
+        vel = 0;
+    }
+    midi_send({0x09, static_cast<uint8_t>(0x90 | (config.outputChannel[track] - 1)), note, vel});
 
     lastNote[track] = note;
 }
@@ -523,8 +526,6 @@ void midi_init()
     stopFlag = false;
     startFlag = false;
     idleTime = 0;
-
-    midiController.velocity = 100;
 
     Serial1.begin(31250); // DIN out
 

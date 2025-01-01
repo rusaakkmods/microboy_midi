@@ -16,8 +16,6 @@ volatile bool shiftPressed = false;
 volatile bool comboPressed = false;
 volatile bool adjustValueMode = false;
 
-
-
 void control_checkNavigator()
 {
   bool shiftState = digitalRead(SHIFT_PIN) == LOW;
@@ -33,7 +31,27 @@ void control_checkNavigator()
       comboPressed = true;
       if (display.currentState == MAIN_DISPLAY)
       {
-        // todo control_trigger_on_off();
+        Cursor cur = display.mainCursors[display.mainCursorIndex];
+        switch (cur.trigger)
+        {
+          case SOLO:
+            if (midiController.isSolo && midiController.soloTrack == display.mainCursorIndex + 1)
+            {
+              midiController.isSolo = false;
+            }
+            else
+            {
+              midiController.isSolo = true;
+              midiController.soloTrack = display.mainCursorIndex + 1;
+            }
+            break;
+          case MUTE:
+            midiController.isMute = !midiController.isMute;
+            break;
+          default:
+            //ignore for now
+            break;
+        }
       }
       else if (display.currentState == MAIN_MENU)
       {
@@ -130,8 +148,19 @@ ISR(PCINT0_vect)
         case MAIN_DISPLAY:
           if (shiftPressed)
           {
-            //todo update value
-            //mainCursors[mainIndex].value += delta;
+            Cursor cur = display.mainCursors[display.mainCursorIndex];
+            switch (cur.type)
+            {
+              case RANGE_1_16:
+                config.outputChannel[display.mainCursorIndex] = constrain(config.outputChannel[display.mainCursorIndex] + delta, 1, 16);
+                break;
+              case RANGE_0_127:
+                config.velocity = constrain(config.velocity + delta, 0, 127);
+                break;
+              default:
+                //ignore for now
+                break;
+            }
           }
           else
           {
@@ -162,10 +191,14 @@ void control_read()
   control_checkNavigator();
 
   // // mute toggle switch
-  midiController.isPU1Muted = digitalRead(MUTE_PU1);
-  midiController.isPU2Muted = digitalRead(MUTE_PU2);
-  midiController.isWAVMuted = digitalRead(MUTE_WAV);
-  midiController.isNOIMuted = digitalRead(MUTE_NOI);
+  if (midiController.isPU1Muted != digitalRead(MUTE_PU1))
+    midiController.isPU1Muted = digitalRead(MUTE_PU1);
+  if (midiController.isPU2Muted != digitalRead(MUTE_PU2))
+    midiController.isPU2Muted = digitalRead(MUTE_PU2);
+  if (midiController.isWAVMuted != digitalRead(MUTE_WAV))
+    midiController.isWAVMuted = digitalRead(MUTE_WAV);
+  if (midiController.isNOIMuted != digitalRead(MUTE_NOI))
+    midiController.isNOIMuted = digitalRead(MUTE_NOI);
 }
 
 void control_init()

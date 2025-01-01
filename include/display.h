@@ -16,6 +16,11 @@ enum ValueType {
     ACTION
 };
 
+enum TriggerType {
+    SOLO,
+    MUTE
+};
+
 struct Cursor {
   int x;
   int y;
@@ -23,6 +28,7 @@ struct Cursor {
   int h;
   int value;
   ValueType type;
+  TriggerType trigger;
 };
 
 struct SubMenu {
@@ -40,11 +46,6 @@ struct MainMenu {
 struct Display
 {
     MenuState currentState;
-    bool mute_pu1;
-    bool mute_pu2;
-    bool mute_wav;
-    bool mute_noi;
-    byte velocity;
 
     int mainCursorIndex;
     Cursor* mainCursors;

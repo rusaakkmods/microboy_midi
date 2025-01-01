@@ -1,4 +1,5 @@
 #include "display.h"
+#include "midi_controller.h"
 #include <U8g2lib.h>
 
 U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
@@ -9,11 +10,11 @@ static const unsigned char menu_bits[] U8X8_PROGMEM = {0x00,0x00,0x00,0x00,0x00,
 
 #define NUM_CURSORS 5
 Cursor cursors[NUM_CURSORS] = {
-    {6, 9, 19, 13, config.outputChannel[0], RANGE_1_16},
-    {38, 9, 19, 13, config.outputChannel[1], RANGE_1_16},
-    {70, 9, 19, 13, config.outputChannel[2], RANGE_1_16},
-    {102, 9, 19, 13, config.outputChannel[3], RANGE_1_16},
-    {112, 24, 15, 8, config.velocity, RANGE_0_127}
+    {6, 9, 19, 13, config.outputChannel[0], RANGE_1_16, SOLO},
+    {38, 9, 19, 13, config.outputChannel[1], RANGE_1_16, SOLO},
+    {70, 9, 19, 13, config.outputChannel[2], RANGE_1_16, SOLO},
+    {102, 9, 19, 13, config.outputChannel[3], RANGE_1_16, SOLO},
+    {112, 24, 15, 8, config.velocity, RANGE_0_127, MUTE}
 };
 
 #define NUM_CHANNEL_SUBMENU 4
@@ -26,30 +27,30 @@ SubMenu channelSubMenus[NUM_CHANNEL_SUBMENU] = {
 
 #define NUM_MIDI_SUBMENU 5
 SubMenu midiSubMenus[NUM_MIDI_SUBMENU] = {
-    {"Velocity", RANGE_0_127, "100"},
-    {"CC", ON_OFF, "OFF"}, 
-    {"PC", ON_OFF, "OFF"}, 
-    {"Realtime", ON_OFF, "OFF"}, 
-    {"Clock", ON_OFF, "OFF"}
+    {"VELOCITY", RANGE_0_127, "100"},
+    {"MIDI CC", ON_OFF, "OFF"}, 
+    {"MIDI PC", ON_OFF, "OFF"}, 
+    {"REALTIME", ON_OFF, "OFF"}, 
+    {"CLOCK", ON_OFF, "OFF"}
 };
 
 #define NUM_READER_SUBMENU 2
 SubMenu readerSubMenus[NUM_READER_SUBMENU] = {
-    {"byte delay", RANGE_1000_5000_BY_100, "2000"},
-    {"ex. correct", ON_OFF, "OFF"}
+    {"BYTE DELAY", RANGE_1000_5000_BY_100, "2000"},
+    {"EXP.CORCT", ON_OFF, "OFF"}
 };
 
 #define NUM_CONFIG_SUBMENU 2
 SubMenu configSubMenus[NUM_CONFIG_SUBMENU] = {
-    {"Save", ACTION, ""},
-    {"Default", ACTION, ""}
+    {"SAVE", ACTION, ""},
+    {"DEFAULT", ACTION, ""}
 };
 
 #define NUM_ABOUT_SUBMENU 3
 SubMenu aboutSubMenus[NUM_ABOUT_SUBMENU] = {
-    {"Firmware", TEXT, _VERSION},
-    {"Author", TEXT, _AUTHOR},
-    {"GitHub", TEXT, _GITHUB}
+    {"FIRMWARE", TEXT, _VERSION},
+    {"AUTHOR", TEXT, _AUTHOR},
+    {"GITHUB", TEXT, _GITHUB}
 };
 
 #define NUM_MAIN_MENU 5
@@ -66,11 +67,6 @@ Display display;
 void display_load()
 {
     display.currentState = MAIN_DISPLAY;
-    display.mute_pu1 = false;
-    display.mute_pu2 = false;
-    display.mute_wav = false;
-    display.mute_noi = false;
-    display.velocity = 100;
     display.mainCursorIndex = 0;
     display.mainCursors = cursors;
     display.cursorSize = NUM_CURSORS;
@@ -137,31 +133,47 @@ void display_main()
     u8g2.setDrawColor(2);
     u8g2.setFont(u8g2_font_profont10_tr);
     
-    //pu1
-    u8g2.drawStr(19, 6, "m");
+    //mute indicator
+    if (midiController.isSolo) {
+        u8g2.drawStr(19, 6, (midiController.soloTrack == 1 ? "s": "x"));
+        u8g2.drawStr(51, 6,(midiController.soloTrack == 2 ? "s": "x"));
+        u8g2.drawStr(83, 6, (midiController.soloTrack == 3 ? "s": "x"));
+        u8g2.drawStr(115, 6, (midiController.soloTrack == 4 ? "s": "x"));
+    } else {
+        if (midiController.isPU1Muted) u8g2.drawStr(19, 6, "m");
+        if (midiController.isPU2Muted) u8g2.drawStr(51, 6, "m");
+        if (midiController.isWAVMuted) u8g2.drawStr(83, 6, "m");
+        if (midiController.isNOIMuted) u8g2.drawStr(115, 6, "m");
+    }
+
     u8g2.drawBox(25, 2, 4, 4); //todo signal
-
-    //pu2
-    u8g2.drawStr(51, 6, "m");
     u8g2.drawBox(57, 2, 4, 4); //todo signal
-
-    //wav
-    u8g2.drawStr(83, 6, "m");
     u8g2.drawBox(89, 2, 4, 4); //todo signal
-
-    //noi
-    u8g2.drawStr(115, 6, "m");
     u8g2.drawBox(121, 2, 4, 4); //todo signal
 
     //velocity
     u8g2.setDrawColor(1);
     u8g2.setFont(u8g2_font_profont10_tr);
-    u8g2.drawStr(112, 31, "100");
+    if (midiController.isMute) {
+        u8g2.drawStr(112, 31, "---");
+        u8g2.setDrawColor(2);
+        u8g2.drawStr(48, 30, "mu-e");
+    } else {
+        static char velstr[4];
+        if (config.velocity < 10) {
+            sprintf(velstr, "  %d", config.velocity);
+        } else if (config.velocity < 100) {
+            sprintf(velstr, " %d", config.velocity);
+        } else {
+            sprintf(velstr, "%d", config.velocity);
+        }
+        u8g2.drawStr(112, 31, velstr);
 
-    int vel = map(display.velocity, 0, 127, 0, 103);
-    u8g2.setDrawColor(2);
-    u8g2.drawBox(7, 26, vel, 4); //velocitygauge bar
-
+        int vel = map(config.velocity, 0, 127, 0, 103);
+        u8g2.setDrawColor(2);
+        u8g2.drawBox(7, 26, vel, 4);
+    }
+    
     //channels
     u8g2.setDrawColor(1);
     u8g2.setFont(u8g2_font_profont17_tr);
@@ -192,7 +204,25 @@ void display_menu()
 
 void display_submenu()
 {
-   //todo
+    u8g2.clearBuffer();
+    u8g2.setFontMode(1);
+    u8g2.setBitmapMode(1);
+    u8g2.setFont(u8g2_font_profont17_tr);
+    u8g2.drawStr(3, 14, display.mainMenus[display.menuIndex].subMenus[display.submenuIndex].name);
+    u8g2.setFont(u8g2_font_profont15_tr);
+    u8g2.drawStr(80, 29, "[     ]");
+    
+    u8g2.setFont(u8g2_font_profont12_tr);
+    //value
+    u8g2.drawStr(96, 28, "OFF");
+
+    u8g2.setDrawColor(2);
+    u8g2.drawBox(1, 1, 93, 15);
+
+    //shift cursor
+    u8g2.drawBox(87, 18, 34, 12);
+
+    u8g2.sendBuffer();
 }
 
 void display_init()

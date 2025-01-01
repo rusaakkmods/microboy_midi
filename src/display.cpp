@@ -160,13 +160,7 @@ void display_main()
         u8g2.drawStr(48, 30, "mu-e");
     } else {
         static char velstr[4];
-        if (config.velocity < 10) {
-            sprintf(velstr, "  %d", config.velocity);
-        } else if (config.velocity < 100) {
-            sprintf(velstr, " %d", config.velocity);
-        } else {
-            sprintf(velstr, "%d", config.velocity);
-        }
+        sprintf(velstr, "%03d", config.velocity);
         u8g2.drawStr(112, 31, velstr);
 
         int vel = map(config.velocity, 0, 127, 0, 103);
@@ -177,10 +171,15 @@ void display_main()
     //channels
     u8g2.setDrawColor(1);
     u8g2.setFont(u8g2_font_profont17_tr);
-    u8g2.drawStr(7, 21, "01");
-    u8g2.drawStr(39, 21, "02");
-    u8g2.drawStr(71, 21, "03");
-    u8g2.drawStr(103, 21, "04");
+    static char chstr[3];
+    sprintf(chstr, "%02d", config.outputChannel[0]);
+    u8g2.drawStr(7, 21, chstr);
+    sprintf(chstr, "%02d", config.outputChannel[1]);
+    u8g2.drawStr(39, 21, chstr);
+    sprintf(chstr, "%02d", config.outputChannel[2]);
+    u8g2.drawStr(71, 21, chstr);
+    sprintf(chstr, "%02d", config.outputChannel[3]);
+    u8g2.drawStr(103, 21, chstr);
 
     //String(display.cursorSize).c_str()
     Cursor cu = display.mainCursors[display.mainCursorIndex];

@@ -42,7 +42,7 @@ void loop()
 
   // if (pinChecker.isConnected) {
     //midi_handleStop(); // check stop flag
-    //control_read();
+    control_read();
     //reader_read();
 
     display_refresh();

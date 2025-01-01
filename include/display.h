@@ -7,14 +7,6 @@ enum MenuState {
     SUBMENU 
 };
 
-struct Cursor {
-  int x;
-  int y;
-  int w;
-  int h;
-  int value;
-};
-
 enum ValueType {
     ON_OFF,
     RANGE_1_16,
@@ -24,6 +16,15 @@ enum ValueType {
     ACTION
 };
 
+struct Cursor {
+  int x;
+  int y;
+  int w;
+  int h;
+  int value;
+  ValueType type;
+};
+
 struct SubMenu {
     char* name;
     ValueType type;
@@ -31,7 +32,7 @@ struct SubMenu {
 };
 
 struct MainMenu {
-    String name;
+    char* name;
     uint8_t size;
     SubMenu* subMenus;
 };

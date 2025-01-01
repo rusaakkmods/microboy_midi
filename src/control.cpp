@@ -10,11 +10,10 @@ volatile int encoderState = 0;
 volatile int lastEncoderState = 0;
 
 // Button flags
-volatile bool buttonPressed = false;
+bool buttonPressed = false;
 bool clicked = false;
-volatile bool shiftPressed = false;
-volatile bool comboPressed = false;
-volatile bool adjustValueMode = false;
+bool shiftPressed = false;
+bool comboPressed = false;
 
 void control_checkNavigator()
 {
@@ -80,6 +79,20 @@ void control_checkNavigator()
       else if (display.currentState == MAIN_MENU)
       {
         display.currentState = SUBMENU;
+      } else if (display.currentState == SUBMENU)
+      {
+        SubMenu sub = display.mainMenus[display.menuIndex].subMenus[display.submenuIndex];
+        switch (sub.type)
+        {
+          case SAVE_CONFIG:
+            config_save();
+            break;
+          case LOAD_DEFAULT:
+            config_default();
+            break;
+          default:
+            break;
+        }
       }
     }
     else if (!buttonPressed)
@@ -173,7 +186,30 @@ ISR(PCINT0_vect)
         case SUBMENU:
           if (shiftPressed)
           {
-            //todo update value
+            SubMenu sub = display.mainMenus[display.menuIndex].subMenus[display.submenuIndex];
+            //int new_value;
+            switch (sub.type)
+            {
+              case ON_OFF:
+                //new_value = sub.value == "OFF" ? true : false;
+                sub.value = sub.value == "OFF" ? "ON" : "OFF";
+                break;
+              case RANGE_1_16:
+                //new_value = constrain(sub.value.toInt() + delta, 1, 16);
+                sub.value = String(constrain(sub.value.toInt() + delta, 1, 16));
+                break;
+              case RANGE_0_127:
+                //new_value = constrain(sub.value.toInt() + delta, 0, 127);
+                sub.value = String(constrain(sub.value.toInt() + delta, 0, 127));
+                break;
+              case RANGE_1000_5000_BY_100:
+                //new_value = constrain(sub.value.toInt() + delta * 100, 1000, 5000);
+                sub.value = String(constrain(sub.value.toInt() + delta * 100, 1000, 5000));
+                break;
+              default: //ignore for now
+                break;
+            }
+            //todo update config value???
             //mainMenu[menuIndex].subMenu[submenuIndex].value = constrain(mainMenu[menuIndex].subMenu[submenuIndex].value + delta, 0, 100);
           }
           else

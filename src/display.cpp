@@ -2,6 +2,9 @@
 #include "midi_controller.h"
 #include <U8g2lib.h>
 
+#define U8G2_USE_LARGE_FONTS 0  // Disable large fonts
+#define U8X8_HAVE_HW_I2C 1      // Enable only I2C support
+
 U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
 
 static const unsigned char logo_bits[] U8X8_PROGMEM = {0x00,0x00,0x00,0x00,0xe0,0xff,0xff,0x0f,0x20,0x00,0x40,0x08,0x38,0x00,0x40,0x08,0x08,0x00,0x40,0x08,0x0e,0x00,0x40,0x08,0x82,0xff,0xff,0x0f,0xc2,0xf9,0xff,0x0f,0xc2,0xf9,0xff,0x0f,0x42,0xe0,0xe7,0x0c,0x42,0xe0,0x4b,0x09,0xc2,0xf9,0x43,0x08,0xc2,0x49,0xe6,0x0c,0xfe,0xff,0xff,0x0f,0x00,0x00,0x00,0x00,0xfe,0xff,0xff,0x0f,0x86,0x63,0x38,0x0c,0x56,0x5d,0xd7,0x0f,0x56,0x5d,0x17,0x0c,0x56,0x5d,0xf7,0x0d,0x56,0x63,0x18,0x0e,0xfe,0xff,0xff,0x0f,0x00,0x00,0x00,0x00};
@@ -19,31 +22,31 @@ Cursor cursors[NUM_CURSORS] = {
 
 #define NUM_CHANNEL_SUBMENU 4
 SubMenu channelSubMenus[NUM_CHANNEL_SUBMENU] = {
-    {"PU1", RANGE_1_16, "1"},
-    {"PU2", RANGE_1_16, "2"},
-    {"WAV", RANGE_1_16, "3"},
-    {"NOI", RANGE_1_16, "4"}
+    {"PU1", RANGE_1_16, String(config.outputChannel[0])},
+    {"PU2", RANGE_1_16, String(config.outputChannel[1])}, 
+    {"WAV", RANGE_1_16, String(config.outputChannel[2])},
+    {"NOI", RANGE_1_16, String(config.outputChannel[3])}
 };
 
 #define NUM_MIDI_SUBMENU 5
 SubMenu midiSubMenus[NUM_MIDI_SUBMENU] = {
-    {"VELOCITY", RANGE_0_127, "100"},
-    {"MIDI CC", ON_OFF, "OFF"}, 
-    {"MIDI PC", ON_OFF, "OFF"}, 
-    {"REALTIME", ON_OFF, "OFF"}, 
-    {"CLOCK", ON_OFF, "OFF"}
+    {"VELOCITY", RANGE_0_127, String(config.velocity)},
+    {"MIDI CC", ON_OFF, config.ccEnabled ? "ON" : "OFF"}, 
+    {"MIDI PC", ON_OFF, config.pcEnabled ? "ON" : "OFF"}, 
+    {"REALTIME", ON_OFF, config.realTimeEnabled ? "ON" : "OFF"}, 
+    {"CLOCK", ON_OFF, config.clockEnabled ? "ON" : "OFF"}
 };
 
 #define NUM_READER_SUBMENU 2
 SubMenu readerSubMenus[NUM_READER_SUBMENU] = {
-    {"BYTE DELAY", RANGE_1000_5000_BY_100, "2000"},
-    {"EXP.CORCT", ON_OFF, "OFF"}
+    {"BYTE DELAY", RANGE_1000_5000_BY_100, String(config.byteDelay)},
+    {"EXP.CORCT", ON_OFF, config.experimentalCorrectionEnabled ? "ON" : "OFF"}
 };
 
 #define NUM_CONFIG_SUBMENU 2
 SubMenu configSubMenus[NUM_CONFIG_SUBMENU] = {
-    {"SAVE", ACTION, ""},
-    {"DEFAULT", ACTION, ""}
+    {"SAVE", SAVE_CONFIG, ""},
+    {"DEFAULT", LOAD_DEFAULT, ""}
 };
 
 #define NUM_ABOUT_SUBMENU 3

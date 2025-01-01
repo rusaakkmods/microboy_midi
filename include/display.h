@@ -13,7 +13,8 @@ enum ValueType {
     RANGE_0_127,
     RANGE_1000_5000_BY_100,
     TEXT,
-    ACTION
+    SAVE_CONFIG,
+    LOAD_DEFAULT
 };
 
 enum TriggerType {
@@ -34,7 +35,7 @@ struct Cursor {
 struct SubMenu {
     char* name;
     ValueType type;
-    char* value;
+    String value;
 };
 
 struct MainMenu {

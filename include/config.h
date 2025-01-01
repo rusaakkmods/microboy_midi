@@ -33,4 +33,5 @@ struct Config
 extern Config config;
 
 void config_init();
+void config_save();
 void config_default();

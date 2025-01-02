@@ -14,7 +14,7 @@ enum ValueType {
     RANGE_1_16,
     RANGE_0_127,
     RANGE_1000_5000_BY_100,
-    TEXT,
+    ABOUT,
     SAVE_CONFIG,
     LOAD_DEFAULT
 };
@@ -34,12 +34,14 @@ struct Cursor {
 };
 
 struct SubMenu {
-    const char* name;
+    const char* name PROGMEM;
     ValueType type;
+    uint16_t* value;
+    char* charValue;
 };
 
 struct MainMenu {
-    const char* name;
+    const char* name PROGMEM;
     uint8_t size;
     const SubMenu* subMenus;
 };
@@ -55,7 +57,6 @@ struct Display
     uint8_t menuIndex;
     uint8_t submenuIndex;
     const MainMenu* mainMenus;
-    String subMenuValues[NUM_MAIN_MENU];
     uint8_t mainMenuSize;
 };
 

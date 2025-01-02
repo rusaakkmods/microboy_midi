@@ -4,21 +4,22 @@
 
 #define BIT_DELAY 1
 
+//NOTE: configurabe only use uint16_t
 struct Config
 {
   // channels
-  byte outputChannel[4];
+  uint16_t outputChannel[4];
 
   // MIDI
-  byte velocity;
-  bool pcEnabled;
-  bool ccEnabled;
-  bool realTimeEnabled;
-  bool clockEnabled;
+  uint16_t velocity;
+  uint16_t pcEnabled;
+  uint16_t ccEnabled;
+  uint16_t realTimeEnabled;
+  uint16_t clockEnabled;
 
   // reader
-  uint32_t byteDelay;
-  bool experimentalCorrectionEnabled;
+  uint16_t byteDelay;
+  uint16_t experimentalCorrectionEnabled;
 
   // eeprom version
   uint32_t version;

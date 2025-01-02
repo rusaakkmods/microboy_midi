@@ -36,13 +36,6 @@ bool midi_isTrackMuted(byte track)
     }
 }
 
-/**
- * @brief Flushes the MIDI buffer.
- *
- * This function flushes the MIDI buffer using the MidiUSB library. If the
- * USE_MIDI_h macro is defined, it reads from the MIDI interface. Otherwise,
- * it flushes the Serial1 buffer.
- */
 void midi_flush()
 {
     MidiUSB.flush();
@@ -54,15 +47,6 @@ void midi_flush()
 #endif
 }
 
-/**
- * @brief Sends a MIDI event packet.
- *
- * This function sends a MIDI event packet using the MidiUSB library. If the
- * USE_MIDI_h macro is not defined, it also sends the MIDI message bytes over
- * Serial1.
- *
- * @param message The MIDI event packet to send.
- */
 void midi_send(midiEventPacket_t message)
 {
     MidiUSB.sendMIDI(message);
@@ -76,14 +60,6 @@ void midi_send(midiEventPacket_t message)
     midi_flush();
 }
 
-/**
- * @brief Sends a MIDI clock tick message.
- *
- * This function sends a MIDI real-time clock message to synchronize MIDI devices.
- * If the `USE_MIDI_h` macro is defined, it uses the `MIDI.sendRealTime` method to send
- * the clock message. Additionally, it sends a custom MIDI message with the bytes
- * {0x0F, 0xF8, 0x00, 0x00}.
- */
 void midi_sendTick()
 {
 #ifdef USE_MIDI_h
@@ -92,14 +68,6 @@ void midi_sendTick()
     midi_send({0x0F, 0xF8, 0x00, 0x00});
 }
 
-/**
- * @brief Sends a MIDI Note Off message for the specified track.
- *
- * This function sends a MIDI Note Off message for the last note played on the given track.
- * It uses the MIDI library if available, and also sends a custom MIDI message.
- *
- * @param track The track number for which to send the Note Off message.
- */
 void midi_noteOff(byte track)
 {
     byte note = lastNote[track];
@@ -115,15 +83,6 @@ void midi_noteOff(byte track)
     }
 }
 
-/**
- * @brief Sends a MIDI Note On message for a specified track and note.
- *
- * This function stops any previously playing note on the given track (assuming each track is monophonic),
- * and then sends a new Note On message for the specified note.
- *
- * @param track The track number to send the Note On message to.
- * @param note The MIDI note number to be played.
- */
 void midi_noteOn(byte track, byte note)
 {
     midi_noteOff(track); // stop previous note consider each track is monophonics
@@ -140,13 +99,6 @@ void midi_noteOn(byte track, byte note)
     lastNote[track] = note;
 }
 
-/**
- * @brief Stops all MIDI notes on all tracks.
- *
- * This function iterates through all available tracks (0 to 3) and sends a
- * MIDI note off message to each track, effectively stopping any currently
- * playing notes.
- */
 void midi_noteStop()
 {
     for (uint8_t track = 0; track < 4; track++)
@@ -155,16 +107,6 @@ void midi_noteStop()
     }
 }
 
-/**
- * @brief Sends a MIDI note on or off message based on the note value.
- *
- * This function sends a "Note On" message if the note value is greater than 0,
- * and a "Note Off" message if the note value is 0.
- *
- * @param track The MIDI track/channel to send the message on.
- * @param note The note value to send. A value between 1 and 127 sends a "Note On" message,
- *             while a value of 0 sends a "Note Off" message.
- */
 void midi_sendNote(byte track, byte note)
 {
     if (note)
@@ -196,17 +138,6 @@ void midi_sendControlChange(byte track, byte value)
 #endif
 }
 
-/**
- * @brief Sends a MIDI Program Change message to the specified track.
- *
- * This function sends a MIDI Program Change message using the specified track and value.
- * If the USE_MIDI_h macro is defined, it uses the MIDI library to send the message.
- * Otherwise, it sends the message using the midi_send function.
- * If DEBUG_MODE is defined, it also prints debug information to the Serial monitor.
- *
- * @param track The track number to which the Program Change message will be sent.
- * @param value The program number to be sent in the Program Change message.
- */
 void midi_sendProgramChange(byte track, byte value)
 {
 #ifdef USE_MIDI_h
@@ -223,17 +154,6 @@ void midi_sendProgramChange(byte track, byte value)
 #endif
 }
 
-/**
- * @brief Experimental function to correct Gameboy reading hiccups!!.
- *
- * This function attempts to correct Gameboy reading hiccups by sending a note
- * using the last track if the provided value is not zero. If the value
- * is zero, it is ignored as it indicates an idle state.
- *
- * @param value The MIDI value to be corrected.
- *
- * @note This function is experimental
- */
 void midi_experimentalCorrection(byte value)
 {
     // EXPERIMENTAL HICCUPS! CORRECTION!! LOL
@@ -247,24 +167,6 @@ void midi_experimentalCorrection(byte value)
     }
 }
 
-/**
- * @brief Handles the MIDI stop event.
- *
- * This function is responsible for managing the MIDI stop event, ensuring that
- * the "stop" glitch is avoided by checking the stop flag and idle time. If the
- * conditions are met, it sends a MIDI stop message, resets the clock, stops
- * any active MIDI notes, and flushes the MIDI buffer.
- *
- * @note Conditions:
- * @note - The stop flag must be set.
- * @note - The idle time must be greater than 100.
- *
- * @details Actions:
- * - If real-time MIDI is enabled, sends a MIDI stop message.
- * - Resets the clock.
- * - Stops any active MIDI notes.
- * - Flushes the MIDI buffer.
- */
 void midi_handleStop()
 {
     if (stopFlag && idleTime > 100) // at least 300 idle time to consider stop
@@ -278,7 +180,6 @@ void midi_handleStop()
             midi_send({0x0F, 0xFC, 0x00, 0x00});
         }
 
-        clock_reset();
         midi_noteStop();
         midi_flush();
 
@@ -292,22 +193,6 @@ void midi_handleStop()
     }
 }
 
-/**
- * @brief Handles incoming MIDI messages and processes them based on the command type.
- *
- * This function processes different types of MIDI messages such as Note On/Off, Control Change (CC),
- * and Program Change (PC). It also handles experimental correction and clock tap tick based on the
- * configuration settings.
- *
- * @param message The MIDI message byte, which includes the command type and channel information.
- * @param value The value byte associated with the MIDI message, typically representing velocity or control value.
- *
- * @details Command types:
- * - 0x00 to 0x03: Note On/Off messages for tracks 0 to 3.
- * - 0x04 to 0x07: Control Change (CC) messages for tracks 0 to 3.
- * - 0x08 to 0x0B: Program Change (PC) messages for tracks 0 to 3.
- * - 0x0C to 0x0F: Reserved for future use or unknown commands.
- */
 void midi_message(byte message, byte value)
 {
     idleTime = 0;
@@ -347,7 +232,7 @@ void midi_message(byte message, byte value)
 
         if (value == 0x7F) // use the GUNSHOT!!! y-FF command!
         {
-            clock_tapTick();
+            if (config.clockEnabled) midi_sendTick();
         }
         else
         {
@@ -380,20 +265,6 @@ void midi_message(byte message, byte value)
 
 // Route Realtime MIDI Messages
 // commands: 0x7D-Start, 0x7E-Stop, 0x7F-Idle
-/**
- * @brief Handles MIDI real-time messages.
- *
- * This function processes incoming MIDI real-time messages and performs actions
- * based on the command received. It supports Start (0x7D), Stop (0x7E), and Idle (0x7F)
- * commands. The function also includes debug output for troubleshooting.
- *
- * @param command The MIDI real-time command byte.
- *
- * @details Command values:
- * - 0x7D: Start - Resets the clock, sends a start message, and sets the start flag.
- * - 0x7E: Stop - Sets the stop flag to debounce stop messages.
- * - 0x7F: Idle - Increments idle time if the stop flag is set.
- */
 void midi_realtime(byte command)
 {
     switch (command)
@@ -401,8 +272,6 @@ void midi_realtime(byte command)
     case 0x7D: // Start!
         if (config.realTimeEnabled && !startFlag)
         {
-            clock_reset();
-
             midi_send({0x0F, 0xFA, 0x00, 0x00});
 
 #ifdef USE_MIDI_h
@@ -441,24 +310,6 @@ void midi_realtime(byte command)
     }
 }
 
-/**
- * @brief Initializes the MIDI controller.
- *
- * This function sets up the initial state for the MIDI controller, including
- * resetting note states, track states, and flags. It also initializes the
- * MIDI communication and clock handling.
- *
- * @details The following initializations are performed:
- * - Resets the last note states for PU1, PU2, WAV, and NOI channels.
- * - Resets the last track state.
- * - Resets the stop and start flags.
- * - Resets the idle time.
- * - Sets the default velocity for the MIDI controller.
- * - Initializes the Serial1 communication at 31250 baud rate for DIN out.
- * - Initializes the MIDI library if it is being used.
- * - Flushes any pending MIDI messages.
- * - Initializes the clock and sets up the tick handler for sending MIDI ticks.
- */
 void midi_init()
 {
     lastNote[0] = 0; // PU1
@@ -478,7 +329,4 @@ void midi_init()
 #endif
 
     midi_flush();
-
-    clock_init();
-    clock_handleOnTick(midi_sendTick);
 }

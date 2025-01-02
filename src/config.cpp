@@ -2,7 +2,7 @@
 #include "config.h"
 #include <EEPROM.h>
 
-#define EEPROM_CHECK_NUMBER 0x00000001 // random number to update this when EEPROM structure changed
+#define EEPROM_CHECK_NUMBER 4294901763 // random number, update this when EEPROM structure changed
 #define EEPROM_CHECK_NUMBER_ADDRESS 0
 #define EEPROM_CONFIG_ADDRESS sizeof(uint32_t)
 
@@ -26,9 +26,6 @@ void config_default()
     // config reader
     config.byteDelay = 2000; // at least 1000-5000 for stable reading
     config.experimentalCorrectionEnabled = true;
-
-    // eeprom version
-    config.version = EEPROM_CHECK_NUMBER;
 }
 
 void config_save()
@@ -39,6 +36,7 @@ void config_save()
 
 void config_init()
 {
+    EEPROM.begin();
     uint32_t magicNumber;
     EEPROM.get(EEPROM_CHECK_NUMBER_ADDRESS, magicNumber);
 

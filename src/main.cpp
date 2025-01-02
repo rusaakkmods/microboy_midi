@@ -1,9 +1,7 @@
 #include "display.h"
 #include "midi_controller.h"
-#include "clock.h"
 #include "reader.h"
 #include "control.h"
-//#include <avr/wdt.h>
 
 /* 
 // TODO LIST:
@@ -20,14 +18,12 @@
 
 void setup()
 {
-  //wdt_enable(WDTO_1S); // Set watchdog to 2 seconds
 
 #ifdef DEBUG_MODE
   Serial.begin(9600); // to serial monitor
 #endif
 
-  // config_init();
-  config_default();
+  config_init();
   reader_init();
   control_init();
   midi_init();
@@ -36,17 +32,9 @@ void setup()
 
 void loop()
 {
-  //wdt_reset(); // Reset watchdog disabled causing unable to upload 
-
-  // reader_checkConnection(); // check connection
-
-  // if (pinChecker.isConnected) {
     //midi_handleStop(); // check stop flag
     control_read();
     //reader_read();
 
     display_refresh();
-  // } else {
-  //   display_disconnected();
-  // }
 }

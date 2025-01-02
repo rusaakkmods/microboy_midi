@@ -1,5 +1,4 @@
 #include "reader.h"
-#include "clock.h"
 #include "midi_controller.h"
 #include <util/atomic.h>
 
@@ -7,56 +6,6 @@ uint64_t lastReadGameboy = 0;
 bool isCommandWaiting = false;
 byte commandWaiting = 0x00;
 byte correctionByte = 0x00;
-
-PinChecker pinChecker = {
-    .state = CHECK_HIGH,
-    .stateStartTime = 0,
-    .isConnected = false
-};
-
-bool reader_checkConnection() {
-    static const uint32_t STATE_TIMEOUT = 10;
-    uint32_t currentTime = micros();
-    
-    switch(pinChecker.state) {
-        case CHECK_HIGH:
-            digitalWrite(SO_PIN, HIGH);
-            pinChecker.stateStartTime = currentTime;
-            pinChecker.state = CHECK_LOW;
-            break;
-            
-        case CHECK_LOW:
-            if(currentTime - pinChecker.stateStartTime >= STATE_TIMEOUT) {
-                if(digitalRead(SI_PIN) != HIGH) {
-                    pinChecker.isConnected = false;
-                    pinChecker.state = CHECK_DONE;
-                    break;
-                }
-                digitalWrite(SO_PIN, LOW);
-                pinChecker.stateStartTime = currentTime;
-                pinChecker.state = CHECK_RESTORE;
-            }
-            break;
-            
-        case CHECK_RESTORE:
-            if(currentTime - pinChecker.stateStartTime >= STATE_TIMEOUT) {
-                if(digitalRead(SI_PIN) != LOW) {
-                    pinChecker.isConnected = false;
-                } else {
-                    pinChecker.isConnected = true;
-                }
-                digitalWrite(SO_PIN, HIGH);
-                pinChecker.state = CHECK_DONE;
-            }
-            break;
-            
-        case CHECK_DONE:
-            pinChecker.state = CHECK_HIGH;
-            return pinChecker.isConnected;
-    }
-    
-    return pinChecker.isConnected;
-}
 
 #ifdef ARDUINOBOY_READER
 /* This one based on Arduinoboy version, it is more stable on higher tempo
@@ -91,19 +40,7 @@ byte reader_getByte()
 }
 
 #else
-/**
- * @brief Reads a byte from the Gameboy serial input.
- *
- * This function reads a byte from the Gameboy serial input by toggling the
- * appropriate pins and waiting for the signal to stabilize. It ensures that
- * the Gameboy Serial In is HIGH before starting the read process. The function
- * reads each bit of the byte by checking the state of the PINF5 pin and shifts
- * it into the received byte. After reading all 8 bits, it optionally waits for
- * a configured byte delay before returning the received byte with the MSB set
- * to 0 (range 0-127).
- *
- * @return byte The byte read from the Gameboy serial input, with the MSB set to 0.
- */
+
 byte reader_getByte()
 {
     byte receivedByte = 0;
@@ -132,29 +69,6 @@ byte reader_getByte()
 }
 #endif
 
-/**
- * @brief Reads a byte from the reader and processes it as a MIDI message.
- * 
- * This function reads a byte from the reader and processes it based on its value.
- * It handles different types of MIDI messages, including real-time messages,
- * command messages, and experimental correction for unexpected values.
- * 
- * @note If NON_BLOCKING_DELAY is defined, the function will return early if the
- *       time since the last read is less than the configured byte delay.
- * 
- * @todo Adjust the delay dynamically based on the tempo to handle higher tempos.
- * 
- * The function performs the following steps:
- * 1. Checks if the delay since the last read is sufficient (if NON_BLOCKING_DELAY is defined).
- * 2. Reads a byte from the reader.
- * 3. Updates the last read time.
- * 4. Processes the byte based on its value:
- *    - If a command is waiting, it sends a MIDI message with the command and the byte.
- *    - If the byte is a real-time message (125-127), it processes it as a real-time MIDI message.
- *    - If the byte is a command message (112-124), it sets the command waiting flag.
- *    - If the byte is an unexpected value (0-111), it optionally performs experimental correction.
- * 5. Updates the correction time.
- */
 void reader_read()
 {
 #ifdef NON_BLOCKING_DELAY
@@ -189,19 +103,8 @@ void reader_read()
             midi_experimentalCorrection(value);
         // else ignore this!! beat skipp!
     }
-
-    clock.correction = micros(); // set correction time
 }
 
-/**
- * @brief Initializes the reader by setting up the pin modes and initial states.
- *
- * This function configures the pin modes for the CLOCK_PIN, SI_PIN, and SO_PIN.
- * It sets the CLOCK_PIN and SO_PIN as outputs and the SI_PIN as an input.
- * Additionally, it sets the SO_PIN to HIGH, which is important for the Gameboy
- * Serial In functionality. For more details, refer to the documentation at
- * docs/references/gb_link_serial_in.md.
- */
 void reader_init()
 {
     pinMode(CLOCK_PIN, OUTPUT);
@@ -210,8 +113,4 @@ void reader_init()
 
     // IMPORTANT! Gameboy Serial In must be HIGH explanation: docs/references/gb_link_serial_in.md
     digitalWrite(SO_PIN, HIGH);
-
-    // Initial connection check
-    pinChecker.state = CHECK_HIGH;
-    pinChecker.isConnected = false;
 }

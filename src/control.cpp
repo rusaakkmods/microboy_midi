@@ -86,9 +86,11 @@ void control_checkNavigator()
         {
           case SAVE_CONFIG:
             config_save();
+            display.currentState = MAIN_DISPLAY;
             break;
           case LOAD_DEFAULT:
             config_default();
+            display.currentState = MAIN_DISPLAY;
             break;
           default:
             break;
@@ -186,27 +188,24 @@ ISR(PCINT0_vect)
         case SUBMENU:
           if (shiftPressed)
           {
-            String value = display.subMenuValues[display.submenuIndex];
-            switch (display.mainMenus[display.menuIndex].subMenus[display.submenuIndex].type)
+            SubMenu sub = display.mainMenus[display.menuIndex].subMenus[display.submenuIndex];
+            switch (sub.type)
             {
               case ON_OFF:
-                value = value == "OFF" ? "ON" : "OFF";
+                *sub.value = *sub.value == 0 ? 1 : 0;
                 break;
               case RANGE_1_16:
-                value = String(constrain(value.toInt() + delta, 1, 16));
+                *sub.value = constrain(*sub.value + delta, 1, 16);
                 break;
               case RANGE_0_127:
-                value = String(constrain(value.toInt() + delta, 0, 127));
+                *sub.value = constrain(*sub.value + delta, 0, 127);
                 break;
               case RANGE_1000_5000_BY_100:
-                value = String(constrain(value.toInt() + delta * 100, 1000, 5000));
+                *sub.value = constrain(*sub.value + delta * 100, 1000, 5000);
                 break;
               default: //ignore for now
                 break;
             }
-            display.subMenuValues[display.submenuIndex] = value;
-            //todo update config value???
-            //mainMenu[menuIndex].subMenu[submenuIndex].value = constrain(mainMenu[menuIndex].subMenu[submenuIndex].value + delta, 0, 100);
           }
           else
           {

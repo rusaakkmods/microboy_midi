@@ -242,13 +242,25 @@ void control_read()
 
   // // mute toggle switch
   if (midiController.isPU1Muted != digitalRead(MUTE_PU1))
+  {
     midiController.isPU1Muted = digitalRead(MUTE_PU1);
+    display.updateFlag = true;
+  }
   if (midiController.isPU2Muted != digitalRead(MUTE_PU2))
+  {
     midiController.isPU2Muted = digitalRead(MUTE_PU2);
+    display.updateFlag = true;
+  }
   if (midiController.isWAVMuted != digitalRead(MUTE_WAV))
+  {
     midiController.isWAVMuted = digitalRead(MUTE_WAV);
+    display.updateFlag = true;
+  }
   if (midiController.isNOIMuted != digitalRead(MUTE_NOI))
+  {
     midiController.isNOIMuted = digitalRead(MUTE_NOI);
+    display.updateFlag = true;
+  }
 }
 
 void control_init()

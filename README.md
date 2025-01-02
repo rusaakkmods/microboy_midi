@@ -36,4 +36,3 @@ rusaaKKMODS - MicroBOY MIDI
   - Redirect each track to different MIDI channel
   - OLED Display information
   - Rotary Knob Control Setup
-  - No Blinking LED yet

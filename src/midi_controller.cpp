@@ -87,14 +87,15 @@ void midi_noteOn(byte track, byte note)
 {
     midi_noteOff(track); // stop previous note consider each track is monophonics
 
+    if ((midiController.isSolo && track != midiController.soloTrack) || midiController.isMute) {
+        return;
+    }
+
 #ifdef USE_MIDI_h
     MIDI.sendNoteOn(note, midiController.velocity, config.outputChannel[track]);
 #endif
-    byte vel = config.velocity;
-    if ((midiController.isSolo && track != midiController.isSolo) || midiController.isMute) {
-        vel = 0;
-    }
-    midi_send({0x09, static_cast<uint8_t>(0x90 | (config.outputChannel[track] - 1)), note, vel});
+
+    midi_send({0x09, static_cast<uint8_t>(0x90 | (config.outputChannel[track] - 1)), note, (byte)config.velocity});
 
     lastNote[track] = note;
 }

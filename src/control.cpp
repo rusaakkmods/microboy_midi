@@ -34,18 +34,20 @@ void control_checkNavigator()
         switch (cur.trigger)
         {
           case SOLO:
-            if (midiController.isSolo && midiController.soloTrack == display.mainCursorIndex + 1)
+            if (midiController.isSolo && (midiController.soloTrack == display.mainCursorIndex))
             {
               midiController.isSolo = false;
             }
             else
             {
               midiController.isSolo = true;
-              midiController.soloTrack = display.mainCursorIndex + 1;
+              midiController.soloTrack = display.mainCursorIndex;
             }
+            display.updateFlag = true;
             break;
           case MUTE:
             midiController.isMute = !midiController.isMute;
+            display.updateFlag = true;
             break;
           default:
             //ignore for now
@@ -168,10 +170,20 @@ ISR(PCINT0_vect)
             switch (cur.type)
             {
               case RANGE_1_16:
-                config.outputChannel[display.mainCursorIndex] = constrain(config.outputChannel[display.mainCursorIndex] + delta, 1, 16);
+                uint16_t chan = constrain(config.outputChannel[display.mainCursorIndex] + delta, 1, 16);
+                if (chan != config.outputChannel[display.mainCursorIndex])
+                {
+                  config.outputChannel[display.mainCursorIndex] = chan;
+                  display.updateFlag = true;
+                }
                 break;
               case RANGE_0_127:
-                config.velocity = constrain(config.velocity + delta, 0, 127);
+                uint16_t vel = constrain(config.velocity + delta, 0, 127);
+                if (vel != config.velocity)
+                {
+                  config.velocity = vel;
+                  display.updateFlag = true;
+                }
                 break;
               default:
                 //ignore for now

@@ -137,10 +137,10 @@ void display_main()
     
     //mute indicator
     if (midiController.isSolo) {
-        u8g2.drawStr(19, 6, (midiController.soloTrack == 1 ? "s": "m"));
-        u8g2.drawStr(51, 6,(midiController.soloTrack == 2 ? "s": "m"));
-        u8g2.drawStr(83, 6, (midiController.soloTrack == 3 ? "s": "m"));
-        u8g2.drawStr(115, 6, (midiController.soloTrack == 4 ? "s": "m"));
+        u8g2.drawStr(19, 6, (midiController.soloTrack == 0 ? "s": "m"));
+        u8g2.drawStr(51, 6,(midiController.soloTrack == 1 ? "s": "m"));
+        u8g2.drawStr(83, 6, (midiController.soloTrack == 2 ? "s": "m"));
+        u8g2.drawStr(115, 6, (midiController.soloTrack == 3 ? "s": "m"));
     }
 
     if (!midiController.isPU1Muted) u8g2.drawBox(25, 2, 4, 4);

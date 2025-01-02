@@ -5,13 +5,7 @@
 
 /* 
 // TODO LIST:
-// - Implement OLED Menu for Configurations
-// - Exclude unused CC message - this could minimize glitches
 // - Intead of Y-FF use Unused CC message for clocking??
-// - add reset function
-// - add track leds
-// - add track mute/unmute
-// - add track solo
 // - rename USB_PRODUCT to microboy
 // - todo check if usb not connected to midi device using Serial.dtr()
 */

@@ -167,10 +167,12 @@ ISR(PCINT0_vect)
           if (shiftPressed)
           {
             Cursor cur = display.mainCursors[display.mainCursorIndex];
+            uint16_t chan;
+            uint16_t vel;
             switch (cur.type)
             {
               case RANGE_1_16:
-                uint16_t chan = constrain(config.outputChannel[display.mainCursorIndex] + delta, 1, 16);
+                chan = constrain(config.outputChannel[display.mainCursorIndex] + delta, 1, 16);
                 if (chan != config.outputChannel[display.mainCursorIndex])
                 {
                   config.outputChannel[display.mainCursorIndex] = chan;
@@ -178,7 +180,7 @@ ISR(PCINT0_vect)
                 }
                 break;
               case RANGE_0_127:
-                uint16_t vel = constrain(config.velocity + delta, 0, 127);
+                vel = constrain(config.velocity + delta, 0, 127);
                 if (vel != config.velocity)
                 {
                   config.velocity = vel;

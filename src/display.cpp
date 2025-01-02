@@ -234,7 +234,7 @@ void display_submenu()
             break;
         case ABOUT:
             u8g2.setFont(FONT_SMALL);
-            u8g2.drawStr(11, 27, sub.charValue);
+            u8g2.drawStr(11, 27, sub.strValue.c_str());
             break;
         case SAVE_CONFIG:
         case LOAD_DEFAULT:

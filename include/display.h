@@ -37,7 +37,7 @@ struct SubMenu {
     const char* name PROGMEM;
     ValueType type;
     uint16_t* value;
-    char* charValue;
+    String strValue;
 };
 
 struct MainMenu {

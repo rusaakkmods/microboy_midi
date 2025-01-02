@@ -5,3 +5,4 @@
 .vscode/ipch
 schematic
 schematics/megaboy_midi/megaboy_midi-backups
+.DS_Store

@@ -58,6 +58,7 @@ struct Display
     uint8_t submenuIndex;
     const MainMenu* mainMenus;
     uint8_t mainMenuSize;
+    bool updateFlag;
 };
 
 extern Display display;

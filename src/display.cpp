@@ -80,6 +80,7 @@ void display_load()
     display.submenuIndex = 0;
     display.mainMenus = mainMenus;
     display.mainMenuSize = NUM_MAIN_MENU;
+    display.updateFlag = false;
 }
 
 void display_logo()
@@ -265,8 +266,27 @@ void display_init()
     display_splash();
 }
 
+uint64_t lastRefresh = 0;
+static uint8_t lastState = -1;
+static uint8_t lastMainCursorIndex = -1;
+static uint8_t lastMenuIndex = -1;
+static uint8_t lastSubmenuIndex = -1;
+
 void display_refresh()
 {
+    if (!display.updateFlag && display.currentState == lastState &&
+        display.mainCursorIndex == lastMainCursorIndex &&
+        display.menuIndex == lastMenuIndex &&
+        display.submenuIndex == lastSubmenuIndex) {
+        return;
+    }
+
+    lastState = display.currentState;
+    lastMainCursorIndex = display.mainCursorIndex;
+    lastMenuIndex = display.menuIndex;
+    lastSubmenuIndex = display.submenuIndex;
+    display.updateFlag = false;  
+
     switch (display.currentState) {
         case MAIN_DISPLAY:
             display_main();

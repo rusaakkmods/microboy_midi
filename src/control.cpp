@@ -156,6 +156,7 @@ ISR(PCINT0_vect)
     if (encoderPosition != lastEncoderPosition)
     {
       int delta = encoderPosition - lastEncoderPosition;
+      map(delta, -1, 1, -1, 1);
       lastEncoderPosition = encoderPosition;
 
       switch (display.currentState)
@@ -189,22 +190,28 @@ ISR(PCINT0_vect)
           if (shiftPressed)
           {
             SubMenu sub = display.mainMenus[display.menuIndex].subMenus[display.submenuIndex];
+            uint16_t value;
             switch (sub.type)
             {
               case ON_OFF:
-                *sub.value = *sub.value == 0 ? 1 : 0;
+                value = *sub.value == 0 ? 1 : 0;
                 break;
               case RANGE_1_16:
-                *sub.value = constrain(*sub.value + delta, 1, 16);
+                value = constrain(*sub.value + delta, 1, 16);
                 break;
               case RANGE_0_127:
-                *sub.value = constrain(*sub.value + delta, 0, 127);
+                value = constrain(*sub.value + delta, 0, 127);
                 break;
               case RANGE_1000_5000_BY_100:
-                *sub.value = constrain(*sub.value + delta * 100, 1000, 5000);
+                value = constrain(*sub.value + delta * 100, 1000, 5000);
                 break;
               default: //ignore for now
                 break;
+            }
+            if (value != *sub.value)
+            {
+              *sub.value = value;
+              display.updateFlag = true;  
             }
           }
           else

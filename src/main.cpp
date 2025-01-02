@@ -32,9 +32,9 @@ void setup()
 
 void loop()
 {
-    //midi_handleStop(); // check stop flag
+    midi_handleStop(); // check stop flag
     control_read();
-    //reader_read();
+    reader_read();
 
     display_refresh();
 }

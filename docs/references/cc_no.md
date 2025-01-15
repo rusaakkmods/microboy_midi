@@ -3,6 +3,7 @@
 Below is a full list of the **MIDI Control Change (CC) Numbers**, which are used to control various parameters of a MIDI-compatible instrument or device. Each control number ranges from **0 to 127** and corresponds to a specific function.
 
 ### **Standard MIDI Control Change Numbers**
+// default arduinoboy use {1,2,3,7,10,11,12}
 
 | CC Number  | Function                                |
 |------------|-----------------------------------------|
